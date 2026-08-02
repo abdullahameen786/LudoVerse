@@ -190,3 +190,65 @@ export const subscribeToRoom = (roomCode, callback) => {
     else callback(null);
   });
 };
+
+
+// Add this to the bottom of src/services/gameService.js
+
+// Handle a player resigning from the match
+export const resignGame = async (roomCode, currentRoomData, userId) => {
+  const roomRef = doc(db, "games", roomCode);
+  
+  // Mark player as resigned and deduct coins (Mocking coin deduction in room state)
+  const updatedPlayers = currentRoomData.players.map(p => {
+    if (p.uid === userId) {
+      return { ...p, hasResigned: true, coins: (p.coins || 1000) - 50 }; // -50 coin penalty
+    }
+    return p;
+  });
+
+  // Check if only one player is left after this resignation
+  const activePlayers = updatedPlayers.filter(p => !p.hasResigned);
+  const status = activePlayers.length <= 1 ? "finished" : currentRoomData.status;
+
+  // If the resigning player is the current turn, skip their turn
+  let nextTurnIndex = currentRoomData.currentTurnIndex;
+  if (currentRoomData.players[nextTurnIndex].uid === userId) {
+    nextTurnIndex = (nextTurnIndex + 1) % currentRoomData.players.length;
+  }
+
+  await updateDoc(roomRef, {
+    players: updatedPlayers,
+    status: status,
+    currentTurnIndex: nextTurnIndex
+  });
+};
+
+// Propose a draw to the room
+export const proposeDraw = async (roomCode, userId) => {
+  const roomRef = doc(db, "games", roomCode);
+  await updateDoc(roomRef, {
+    drawProposedBy: userId,
+    drawAcceptedBy: arrayUnion(userId) // Proposer auto-accepts
+  });
+};
+
+// Accept an active draw proposal
+export const acceptDraw = async (roomCode, currentRoomData, userId) => {
+  const roomRef = doc(db, "games", roomCode);
+  const newAccepted = [...(currentRoomData.drawAcceptedBy || []), userId];
+  
+  // Count how many players haven't resigned
+  const activePlayerCount = currentRoomData.players.filter(p => !p.hasResigned).length;
+
+  // If everyone active accepted, end the game in a draw
+  if (newAccepted.length >= activePlayerCount) {
+    await updateDoc(roomRef, {
+      status: "drawn",
+      drawAcceptedBy: newAccepted
+    });
+  } else {
+    await updateDoc(roomRef, {
+      drawAcceptedBy: arrayUnion(userId)
+    });
+  }
+};
