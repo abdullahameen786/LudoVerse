@@ -2,7 +2,7 @@
 import React from "react";
 import { getTokenCoordinates } from "../../utils/ludoMap";
 
-function LudoBoard({ players, currentTurnIndex, hasRolledThisTurn, user, onTokenSelect }) {
+function LudoBoard({ players, currentTurnIndex, currentDiceValue, hasRolledThisTurn, user, onTokenSelect }) {
   const activePlayer = players?.[currentTurnIndex];
   const isMyTurn = activePlayer?.uid === user?.uid;
 
@@ -57,15 +57,15 @@ function LudoBoard({ players, currentTurnIndex, hasRolledThisTurn, user, onToken
         {players?.map((player) =>
           player.tokens.map((token) => {
             const coords = getTokenCoordinates(player.color, token.position, token.id);
-            // Verify this token can actually be clicked right now
+            
+            // ✅ THE BUG FIX: Check the actual currentDiceValue
             const isClickable = isMyTurn && hasRolledThisTurn && player.uid === user.uid && 
-                               ((token.position === -1 && currentTurnIndex.currentDiceValue === 6) || token.position >= 0);
+                               ((token.position === -1 && currentDiceValue === 6) || token.position >= 0);
 
             return (
               <g 
                 key={`${player.color}-${token.id}`}
                 onClick={() => isClickable && onTokenSelect(token)}
-                // Removed animate-bounce to prevent SVG transform distortion. Used animate-pulse instead.
                 className={isClickable ? "cursor-pointer animate-pulse group" : ""}
                 style={{ transformBox: "fill-box", transformOrigin: "center" }}
               >

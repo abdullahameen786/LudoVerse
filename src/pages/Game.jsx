@@ -119,9 +119,11 @@ function Game() {
     <div className="flex min-h-[80vh] items-center justify-center px-4 py-8 bg-slate-50">
       <div className="w-full max-w-4xl grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
         <div className="flex justify-center">
+          {/* ✅ THE FIX: We are now explicitly passing currentDiceValue to the Board */}
           <LudoBoard 
             players={roomData?.players} 
             currentTurnIndex={roomData?.currentTurnIndex} 
+            currentDiceValue={roomData?.currentDiceValue} 
             hasRolledThisTurn={roomData?.hasRolledThisTurn} 
             user={user} 
             onTokenSelect={handleTokenSelect} 
