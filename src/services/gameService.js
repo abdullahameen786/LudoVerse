@@ -88,3 +88,19 @@ export const subscribeToRoom = (roomCode, callback) => {
     else callback(null);
   });
 };
+
+// Add this to the bottom of src/services/gameService.js
+
+// Force skip a turn if a player takes too long
+export const skipTurn = async (roomCode, currentRoomData) => {
+  const roomRef = doc(db, "games", roomCode);
+  
+  // Calculate next structural turn index
+  const nextTurnIndex = (currentRoomData.currentTurnIndex + 1) % currentRoomData.players.length;
+
+  await updateDoc(roomRef, {
+    currentTurnIndex: nextTurnIndex,
+    currentDiceValue: null, // Reset dice visual
+    hasRolledThisTurn: false
+  });
+};

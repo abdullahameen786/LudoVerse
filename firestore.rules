@@ -1,0 +1,13 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Only logged in users can interact with games
+    match /games/{gameId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null;
+      
+      // Basic protection: only allow updates if the user is authenticated
+      allow update: if request.auth != null;
+    }
+  }
+}
