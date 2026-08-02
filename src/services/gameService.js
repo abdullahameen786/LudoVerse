@@ -1,13 +1,15 @@
 // src/services/gameService.js
 import { db } from "../firebase/config";
 import { doc, setDoc, getDoc, updateDoc, onSnapshot, arrayUnion } from "firebase/firestore";
+import { getTokenCoordinates, isSafeZone } from "../utils/ludoMap";
 
+// Generate a random 6-character alphanumeric room code
 const generateRoomCode = () => {
   return Math.random().toString(36).substring(2, 8).toUpperCase();
 };
 
+// Create the 4 starting tokens for a player
 const createInitialTokens = () => {
-  // Every player manages 4 tokens initially located inside their starting yard (-1)
   return [
     { id: 0, position: -1 },
     { id: 1, position: -1 },
@@ -16,6 +18,7 @@ const createInitialTokens = () => {
   ];
 };
 
+// Create a new private room
 export const createGameRoom = async (user) => {
   const roomCode = generateRoomCode();
   const roomRef = doc(db, "games", roomCode);
@@ -42,6 +45,7 @@ export const createGameRoom = async (user) => {
   return roomCode;
 };
 
+// Join an existing room via code
 export const joinGameRoom = async (roomCode, user) => {
   const formattedCode = roomCode.trim().toUpperCase();
   const roomRef = doc(db, "games", formattedCode);
@@ -71,11 +75,13 @@ export const joinGameRoom = async (roomCode, user) => {
   return formattedCode;
 };
 
+// Start the game (Host only)
 export const startGame = async (roomCode) => {
   const roomRef = doc(db, "games", roomCode);
   await updateDoc(roomRef, { status: "playing" });
 };
 
+// Roll handling mechanism
 export const rollDiceInRoom = async (roomCode, currentRoomData) => {
   const roomRef = doc(db, "games", roomCode);
   const rolledValue = Math.floor(Math.random() * 6) + 1;
@@ -83,8 +89,8 @@ export const rollDiceInRoom = async (roomCode, currentRoomData) => {
   // Check if active player has any movable tokens with this roll
   const activePlayer = currentRoomData.players[currentRoomData.currentTurnIndex];
   const hasMovableTokens = activePlayer.tokens.some(token => {
-    if (token.position === -1 && rolledValue === 6) return true;
-    if (token.position >= 0 && token.position + rolledValue <= 56) return true;
+    if (token.position === -1 && rolledValue === 6) return true; // Can spawn
+    if (token.position >= 0 && token.position + rolledValue <= 56) return true; // Can move forward
     return false;
   });
 
@@ -105,28 +111,56 @@ export const rollDiceInRoom = async (roomCode, currentRoomData) => {
   }
 };
 
-// Execute moves on chosen tokens and calculate rotation transitions
+// Execute moves, calculate collisions, and process captures
+// Execute moves, calculate collisions, and process captures
 export const moveTokenInRoom = async (roomCode, currentRoomData, tokenObject) => {
   const roomRef = doc(db, "games", roomCode);
   const diceValue = currentRoomData.currentDiceValue;
   const turnIndex = currentRoomData.currentTurnIndex;
   
+  // --- STRICT MOVE VALIDATION ---
+  // 1. Prevent moving out of yard without a 6
+  if (tokenObject.position === -1 && diceValue !== 6) return;
+  
+  // 2. Prevent overshooting the victory center
+  if (tokenObject.position >= 0 && tokenObject.position + diceValue > 56) return;
+
+  const activePlayer = currentRoomData.players[turnIndex];
+  
+  const newPosIndex = tokenObject.position === -1 ? 0 : tokenObject.position + diceValue;
+  const landingCoords = getTokenCoordinates(activePlayer.color, newPosIndex, tokenObject.id);
+  
+  let madeACapture = false;
+
   const updatedPlayers = currentRoomData.players.map((player, pIdx) => {
-    if (pIdx !== turnIndex) return player;
+    if (pIdx === turnIndex) {
+      const updatedTokens = player.tokens.map(t => 
+        t.id === tokenObject.id ? { ...t, position: newPosIndex } : t
+      );
+      return { ...player, tokens: updatedTokens };
+    }
     
-    const updatedTokens = player.tokens.map(t => {
-      if (t.id !== tokenObject.id) return t;
+    const checkedTokens = player.tokens.map(t => {
+      if (t.position < 0 || t.position > 50) return t;
+
+      const oppCoords = getTokenCoordinates(player.color, t.position, t.id);
       
-      // Spawn out of base yard on a 6, otherwise advance position index
-      const newPos = t.position === -1 ? 0 : t.position + diceValue;
-      return { ...t, position: newPos };
+      if (oppCoords.x === landingCoords.x && oppCoords.y === landingCoords.y) {
+        if (!isSafeZone(landingCoords.x, landingCoords.y)) {
+          madeACapture = true;
+          return { ...t, position: -1 }; 
+        }
+      }
+      return t;
     });
 
-    return { ...player, tokens: updatedTokens };
+    return { ...player, tokens: checkedTokens };
   });
 
-  // A roll of 6 rewards the player with an extra consecutive turn
-  const nextTurnIndex = diceValue === 6 ? turnIndex : (turnIndex + 1) % currentRoomData.players.length;
+  let nextTurnIndex = turnIndex;
+  if (diceValue !== 6 && !madeACapture) {
+    nextTurnIndex = (turnIndex + 1) % currentRoomData.players.length;
+  }
 
   await updateDoc(roomRef, {
     players: updatedPlayers,
@@ -136,9 +170,11 @@ export const moveTokenInRoom = async (roomCode, currentRoomData, tokenObject) =>
   });
 };
 
+// Force skip a turn if a player takes too long
 export const skipTurn = async (roomCode, currentRoomData) => {
   const roomRef = doc(db, "games", roomCode);
   const nextTurnIndex = (currentRoomData.currentTurnIndex + 1) % currentRoomData.players.length;
+  
   await updateDoc(roomRef, {
     currentTurnIndex: nextTurnIndex,
     currentDiceValue: null,
@@ -146,6 +182,7 @@ export const skipTurn = async (roomCode, currentRoomData) => {
   });
 };
 
+// Real-time listener for the room UI
 export const subscribeToRoom = (roomCode, callback) => {
   const roomRef = doc(db, "games", roomCode.toUpperCase());
   return onSnapshot(roomRef, (docSnap) => {

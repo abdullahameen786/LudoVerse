@@ -57,15 +57,18 @@ function LudoBoard({ players, currentTurnIndex, hasRolledThisTurn, user, onToken
         {players?.map((player) =>
           player.tokens.map((token) => {
             const coords = getTokenCoordinates(player.color, token.position, token.id);
-            const isClickable = isMyTurn && hasRolledThisTurn && player.uid === user.uid;
+            // Verify this token can actually be clicked right now
+            const isClickable = isMyTurn && hasRolledThisTurn && player.uid === user.uid && 
+                               ((token.position === -1 && currentTurnIndex.currentDiceValue === 6) || token.position >= 0);
 
             return (
               <g 
                 key={`${player.color}-${token.id}`}
                 onClick={() => isClickable && onTokenSelect(token)}
-                className={isClickable ? "cursor-pointer animate-bounce group" : ""}
+                // Removed animate-bounce to prevent SVG transform distortion. Used animate-pulse instead.
+                className={isClickable ? "cursor-pointer animate-pulse group" : ""}
+                style={{ transformBox: "fill-box", transformOrigin: "center" }}
               >
-                {/* Visual token body offset centered in its structural unit box */}
                 <circle
                   cx={coords.x + 0.5}
                   cy={coords.y + 0.5}

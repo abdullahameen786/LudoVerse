@@ -85,3 +85,22 @@ export const getTokenCoordinates = (color, position, tokenIndex) => {
   // Center victory spot fallback coordinates
   return { x: 7.5, y: 7.5 };
 };
+
+// Add to the bottom of src/utils/ludoMap.js
+
+// 4. Safe Zones (Start points and star tiles where pieces cannot be captured)
+export const SAFE_ZONES = [
+  { x: 1, y: 6 },  // Red start
+  { x: 2, y: 8 },  // Red star (bottom)
+  { x: 8, y: 1 },  // Green start
+  { x: 6, y: 2 },  // Green star (left)
+  { x: 13, y: 8 }, // Blue start
+  { x: 12, y: 6 }, // Blue star (top)
+  { x: 6, y: 13 }, // Yellow start
+  { x: 8, y: 12 }  // Yellow star (right)
+];
+
+// 5. Helper to check if a specific X/Y coordinate is a safe zone
+export const isSafeZone = (x, y) => {
+  return SAFE_ZONES.some(zone => zone.x === x && zone.y === y);
+};
