@@ -1,15 +1,14 @@
-import { createContext, useContext, useEffect, useState } from "react";
-
-import {
-  registerUser,
-  loginUser,
-  logoutUser,
-  googleLogin,
-  forgotPassword,
-  observeAuthState,
+// src/context/AuthContext.jsx
+import { createContext, useState, useEffect } from "react";
+import { 
+  registerUser, 
+  loginUser, 
+  logoutUser, 
+  googleLogin, 
+  observeAuthState 
 } from "../services/authService";
 
-const AuthContext = createContext();
+export const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
@@ -21,7 +20,7 @@ export function AuthProvider({ children }) {
       setLoading(false);
     });
 
-    return unsubscribe;
+    return () => unsubscribe();
   }, []);
 
   const value = {
@@ -31,7 +30,6 @@ export function AuthProvider({ children }) {
     login: loginUser,
     logout: logoutUser,
     googleLogin,
-    forgotPassword,
   };
 
   return (
@@ -39,8 +37,4 @@ export function AuthProvider({ children }) {
       {!loading && children}
     </AuthContext.Provider>
   );
-}
-
-export function useAuthContext() {
-  return useContext(AuthContext);
 }

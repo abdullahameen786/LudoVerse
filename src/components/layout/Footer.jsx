@@ -1,37 +1,21 @@
-import { NavLink } from "react-router-dom";
-import { Dice6 } from "lucide-react";
+// src/components/layout/Footer.jsx
+import { Link } from "react-router-dom";
 
 function Footer() {
   return (
-    <footer className="border-t bg-white">
-      <div className="mx-auto max-w-7xl px-6 py-12">
-        <div className="grid gap-10 md:grid-cols-2">
-          <div>
-            <div className="flex items-center gap-2 text-2xl font-bold text-indigo-600">
-              <Dice6 />
-              LudoVerse
-            </div>
-
-            <p className="mt-4 max-w-sm text-gray-600">
-              Play Ludo online with your friends anytime, anywhere.
-              Fast, beautiful and responsive.
-            </p>
-          </div>
-
-          <div>
-            <h3 className="mb-4 font-semibold">Quick Links</h3>
-
-            <div className="flex flex-col gap-3">
-              <NavLink to="/">Home</NavLink>
-              <NavLink to="/game">Game</NavLink>
-              <NavLink to="/login">Login</NavLink>
-              <NavLink to="/register">Register</NavLink>
-            </div>
-          </div>
+    <footer className="w-full bg-white border-t border-slate-100 py-8 mt-auto">
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-4">
+        {/* Brand */}
+        <div className="text-center sm:text-left">
+          <span className="text-lg font-bold text-slate-800 tracking-wide">LudoVerse</span>
+          <p className="text-xs text-slate-400 mt-1">&copy; {new Date().getFullYear()} LudoVerse. All rights reserved.</p>
         </div>
 
-        <div className="mt-10 border-t pt-6 text-center text-sm text-gray-500">
-          © {new Date().getFullYear()} LudoVerse. All rights reserved.
+        {/* Links */}
+        <div className="flex gap-6 text-sm font-medium text-slate-500">
+          <Link to="/" className="hover:text-indigo-600 transition">Terms</Link>
+          <Link to="/" className="hover:text-indigo-600 transition">Privacy</Link>
+          <Link to="/" className="hover:text-indigo-600 transition">Contact Support</Link>
         </div>
       </div>
     </footer>

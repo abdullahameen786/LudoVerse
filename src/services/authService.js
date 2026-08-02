@@ -11,7 +11,7 @@ import {
 
 import { auth } from "../firebase/config";
 
-// Register User
+// Register
 export const registerUser = async (name, email, password) => {
   const userCredential = await createUserWithEmailAndPassword(
     auth,
@@ -26,7 +26,7 @@ export const registerUser = async (name, email, password) => {
   return userCredential.user;
 };
 
-// Login User
+// Login
 export const loginUser = async (email, password) => {
   const userCredential = await signInWithEmailAndPassword(
     auth,
@@ -55,7 +55,7 @@ export const forgotPassword = async (email) => {
   await sendPasswordResetEmail(auth, email);
 };
 
-// Auth State Listener
+// Observe Auth State
 export const observeAuthState = (callback) => {
   return onAuthStateChanged(auth, callback);
 };
