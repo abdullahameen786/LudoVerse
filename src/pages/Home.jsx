@@ -1,10 +1,22 @@
+import useAuth from "../hooks/useAuth";
+
 function Home() {
+  const { user } = useAuth();
+
   return (
-    <section className="py-20 text-center">
-      <h1 className="text-5xl font-bold">
-        Home Page
-      </h1>
-    </section>
+    <div className="p-10">
+      <h1 className="text-4xl font-bold">Home</h1>
+
+      {user ? (
+        <p className="mt-4 text-green-600">
+          Welcome {user.displayName || user.email}
+        </p>
+      ) : (
+        <p className="mt-4 text-red-600">
+          Not Logged In
+        </p>
+      )}
+    </div>
   );
 }
 
