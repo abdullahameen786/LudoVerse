@@ -252,3 +252,12 @@ export const acceptDraw = async (roomCode, currentRoomData, userId) => {
     });
   }
 };
+
+// NEW: Rejecting a draw completely terminates the vote configuration for everyone
+export const declineDraw = async (roomCode) => {
+  const roomRef = doc(db, "games", roomCode);
+  await updateDoc(roomRef, {
+    drawProposedBy: null,
+    drawAcceptedBy: null
+  });
+};
