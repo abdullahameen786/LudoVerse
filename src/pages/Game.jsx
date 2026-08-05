@@ -13,7 +13,7 @@ import {
   resignGame,
   proposeDraw,
   acceptDraw,
-  declineDraw, // ✅ Import added here
+  declineDraw,
 } from "../services/gameService";
 import LudoBoard from "../components/game/LudoBoard";
 
@@ -26,7 +26,7 @@ function Game() {
   const [joinInput, setJoinInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [timeLeft, setTimeLeft] = useState(120); // ✅ Initialized at 120s
+  const [timeLeft, setTimeLeft] = useState(120);
 
   useEffect(() => {
     if (!activeRoomCode) return;
@@ -42,7 +42,7 @@ function Game() {
 
   useEffect(() => {
     if (!roomData || roomData.status !== "playing") return;
-    setTimeLeft(120); // ✅ 2 minutes duration reset
+    setTimeLeft(120);
     const timer = setInterval(() => {
       setTimeLeft((prev) => {
         if (prev <= 1) {
@@ -57,7 +57,6 @@ function Game() {
     return () => clearInterval(timer);
   }, [roomData?.currentTurnIndex, roomData?.status]);
 
-  // Handlers
   const handleCreateRoom = async () => {
     setError("");
     setLoading(true);
@@ -99,7 +98,9 @@ function Game() {
   };
 
   const handleResign = async () => {
-    if (window.confirm("Are you sure you want to resign? You will lose 50 coins.")) {
+    if (
+      window.confirm("Are you sure you want to resign? You will lose 50 coins.")
+    ) {
       await resignGame(activeRoomCode, roomData, user.uid);
     }
   };
@@ -113,14 +114,17 @@ function Game() {
   };
 
   const handleDeclineDraw = async () => {
-    await declineDraw(activeRoomCode); // ✅ Declines draw proposal completely
+    await declineDraw(activeRoomCode);
   };
 
+  // 1. RESPONSIVE LOBBY VIEW
   if (!activeRoomCode) {
     return (
-      <div className="flex min-h-[80vh] items-center justify-center px-4 py-12 bg-slate-50">
-        <div className="w-full max-w-md rounded-3xl bg-white p-8 text-center shadow-xl border border-slate-100">
-          <h1 className="text-3xl font-bold text-slate-800 mb-6">Game Lobby</h1>
+      <div className="flex min-h-[85vh] items-center justify-center px-4 py-6 bg-slate-50">
+        <div className="w-full max-w-md rounded-2xl bg-white p-6 md:p-8 text-center shadow-xl border border-slate-100">
+          <h1 className="text-2xl md:text-3xl font-black text-slate-800 mb-6">
+            Game Lobby
+          </h1>
           {error && (
             <div className="mb-6 rounded-xl bg-red-50 p-4 text-sm text-red-600">
               {error}
@@ -129,30 +133,30 @@ function Game() {
           <button
             onClick={handleCreateRoom}
             disabled={loading}
-            className="w-full rounded-xl bg-indigo-600 py-4 font-semibold text-white hover:bg-indigo-700 shadow-md"
+            className="w-full rounded-xl bg-indigo-600 py-3.5 font-bold text-white hover:bg-indigo-700 shadow-md active:scale-95 transition-all text-sm md:text-base"
           >
-            Create Room
+            Create Private Room
           </button>
-          <div className="relative my-8">
+          <div className="relative my-6">
             <hr className="border-slate-200" />
-            <span className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white px-4 text-xs font-bold text-slate-400 uppercase tracking-widest">
-              Or
+            <span className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white px-3 text-xs font-bold text-slate-400 uppercase tracking-widest">
+              Or Join Friends
             </span>
           </div>
           <form onSubmit={handleJoinRoom} className="space-y-4">
             <input
               type="text"
-              placeholder="Enter Room Code"
+              placeholder="ENTER ROOM CODE"
               value={joinInput}
               onChange={(e) => setJoinInput(e.target.value.toUpperCase())}
               maxLength={6}
-              className="w-full rounded-xl border border-slate-200 p-4 text-center text-xl font-bold uppercase tracking-widest outline-none focus:border-indigo-600"
+              className="w-full rounded-xl border border-slate-200 p-3.5 text-center text-lg md:text-xl font-black uppercase tracking-widest outline-none focus:border-indigo-600 focus:ring-2 focus:ring-indigo-100 transition-all bg-slate-50"
             />
             <button
               disabled={joinInput.length < 6}
-              className="w-full rounded-xl border bg-white py-4 font-semibold text-slate-700"
+              className="w-full rounded-xl border bg-white py-3.5 font-bold text-slate-700 hover:bg-slate-50 transition-all text-sm md:text-base disabled:opacity-40"
             >
-              Join Game
+              Join Room
             </button>
           </form>
         </div>
@@ -160,31 +164,36 @@ function Game() {
     );
   }
 
+  // 2. RESPONSIVE WAITING LOBBY VIEW
   if (roomData && roomData.status === "waiting") {
     return (
-      <div className="flex min-h-[80vh] items-center justify-center px-4 py-12 bg-slate-50">
-        <div className="w-full max-w-lg rounded-3xl bg-white p-8 shadow-xl border text-center">
-          <h2 className="text-sm font-bold text-slate-400 uppercase tracking-widest mb-2">
+      <div className="flex min-h-[85vh] items-center justify-center px-4 py-6 bg-slate-50">
+        <div className="w-full max-w-md rounded-2xl bg-white p-6 md:p-8 shadow-xl border text-center">
+          <h2 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-2">
             Room Code
           </h2>
-          <div className="bg-indigo-50 border text-indigo-700 text-3xl font-black py-3 px-6 rounded-2xl inline-block mb-6 tracking-[0.2em]">
+          <div className="bg-indigo-50 border border-indigo-100 text-indigo-700 text-2xl md:text-3xl font-black py-2.5 px-6 rounded-xl inline-block mb-6 tracking-[0.2em]">
             {roomData.id}
           </div>
-          <div className="space-y-3 mb-6">
+
+          <p className="text-xs font-bold text-slate-400 text-left uppercase mb-2">
+            Connected Squad
+          </p>
+          <div className="space-y-2.5 mb-6">
             {roomData.players.map((p) => (
               <div
                 key={p.uid}
-                className="p-4 rounded-xl border flex justify-between bg-slate-50"
+                className="p-3 rounded-xl border flex justify-between bg-slate-50 items-center text-sm"
               >
-                <span className="font-semibold text-slate-700 flex items-center gap-2">
+                <span className="font-bold text-slate-700 flex items-center gap-2">
                   <div
-                    className="w-3 h-3 rounded-full"
+                    className="w-3 h-3 rounded-full shadow-xs"
                     style={{ backgroundColor: p.color }}
                   ></div>
                   {p.name}
                 </span>
                 {p.isHost && (
-                  <span className="text-xs font-bold bg-amber-100 text-amber-600 px-2 py-1 rounded-md">
+                  <span className="text-[10px] font-black bg-amber-100 text-amber-700 px-2 py-0.5 rounded-md uppercase tracking-wider">
                     HOST
                   </span>
                 )}
@@ -195,13 +204,13 @@ function Game() {
             <button
               onClick={() => startGame(activeRoomCode)}
               disabled={roomData.players.length < 2}
-              className="w-full bg-indigo-600 text-white py-4 rounded-xl font-semibold"
+              className="w-full bg-indigo-600 text-white py-3.5 rounded-xl font-bold hover:bg-indigo-700 active:scale-95 transition-all disabled:opacity-40 text-sm"
             >
-              Start Match
+              Start Arena Match
             </button>
           ) : (
-            <div className="p-4 bg-slate-100 rounded-xl text-slate-600">
-              Waiting for host...
+            <div className="p-3 bg-slate-100 rounded-xl text-slate-500 font-medium text-xs md:text-sm animate-pulse">
+              Waiting for host to initiate match...
             </div>
           )}
         </div>
@@ -209,9 +218,10 @@ function Game() {
     );
   }
 
+  // ACTIVE MATCH DATA EXTRACTION
   const activePlayer = roomData?.players[roomData.currentTurnIndex];
   const isMyTurn = activePlayer?.uid === user.uid;
-  const isDangerTime = timeLeft <= 15; // ✅ Alert triggers when 15 seconds are left
+  const isDangerTime = timeLeft <= 15;
   const myPlayerState = roomData?.players.find((p) => p.uid === user.uid);
 
   const hasPendingDraw =
@@ -220,25 +230,30 @@ function Game() {
     roomData?.status === "drawn" || roomData?.status === "finished";
 
   return (
-    <div className="flex min-h-[80vh] items-center justify-center px-4 py-8 bg-slate-50">
-      <div className="w-full max-w-5xl grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
-        {/* Playfield Arena Container */}
-        <div className="flex justify-center relative bg-white p-4 rounded-3xl shadow-sm border border-slate-100">
+    // ✅ FIX: dynamic height allocation with optimized scrolling thresholds
+    <div className="min-h-[calc(100vh-76px)] w-full max-w-[100vw] overflow-x-hidden bg-slate-100 flex flex-col justify-start lg:justify-center items-center px-2 py-4 md:p-6 lg:p-8">
+      {/* Dynamic Grid: Mobile vertical container stack / Desktop dual panel horizontal row */}
+      <div className="w-full max-w-5xl flex flex-col lg:grid lg:grid-cols-12 gap-4 md:gap-6 items-center">
+        {/* 🎮 LUDO ARENA WRAPPER FRAME (Spans 6 grid units on desktop) */}
+        <div className="w-full lg:col-span-6 flex justify-center relative bg-white p-2 md:p-4 rounded-2xl shadow-md border border-slate-200/60 order-1">
+          {/* WINNER OVERLAY MASK */}
           {matchEnded && (
-            <div className="absolute inset-0 z-30 flex items-center justify-center bg-slate-900/80 backdrop-blur-sm rounded-3xl p-4 animate-fade-in">
-              <div className="bg-white p-8 rounded-2xl shadow-2xl text-center border-4 border-indigo-600 max-w-sm w-full space-y-4">
-                <div className="text-5xl">👑</div>
-                <h2 className="text-3xl font-black text-slate-800 tracking-tight">
-                  {roomData.status === "drawn" ? "Match Drawn 🤝" : "Victory! 🎉"}
+            <div className="absolute inset-0 z-30 flex items-center justify-center bg-slate-950/80 backdrop-blur-xs rounded-2xl p-4">
+              <div className="bg-white p-6 rounded-xl shadow-2xl text-center border-2 border-indigo-600 max-w-xs w-full space-y-3.5">
+                <div className="text-4xl">👑</div>
+                <h2 className="text-2xl font-black text-slate-800 tracking-tight">
+                  {roomData.status === "drawn"
+                    ? "Match Drawn 🤝"
+                    : "Victory! 🎉"}
                 </h2>
-                <p className="text-sm font-medium text-slate-500">
+                <p className="text-xs font-semibold text-slate-500 leading-relaxed">
                   {roomData.status === "drawn"
                     ? "All active players accepted the draw proposal."
-                    : `${roomData.winnerName || "A player"} has successfully guided all 4 tokens home!`}
+                    : `${roomData.winnerName || "A competitor"} has guided all tokens home safely.`}
                 </p>
                 <button
                   onClick={() => window.location.reload()}
-                  className="w-full mt-2 px-5 py-3 bg-indigo-600 text-white font-bold rounded-xl text-sm shadow-lg shadow-indigo-100 hover:bg-indigo-700 transition"
+                  className="w-full mt-1 px-4 py-2.5 bg-indigo-600 text-white font-bold rounded-lg text-xs shadow-md hover:bg-indigo-700 active:scale-95 transition-all"
                 >
                   Return to Lobby
                 </button>
@@ -246,6 +261,7 @@ function Game() {
             </div>
           )}
 
+          {/* Canvas Component */}
           <LudoBoard
             players={roomData?.players}
             currentTurnIndex={roomData?.currentTurnIndex}
@@ -256,24 +272,24 @@ function Game() {
           />
         </div>
 
-        {/* Dashboard Controls */}
-        <div className="bg-white rounded-3xl p-8 shadow-xl border text-center space-y-6">
-          {/* ✅ ENHANCED DRAW BANNER: Featuring Accept and Decline workflows */}
+        {/* 📊 CONSOLE CONTROL HEADQUARTERS PANEL (Spans 6 grid units on desktop) */}
+        <div className="w-full lg:col-span-6 bg-white rounded-2xl p-4 md:p-6 shadow-md border border-slate-200/60 space-y-4 order-2">
+          {/* MULTIPLAYER VOTE NOTIFICATION POPUP */}
           {hasPendingDraw && !matchEnded && (
-            <div className="bg-amber-50 border border-amber-200 p-4 rounded-2xl text-center space-y-3 mb-4">
-              <p className="text-xs font-bold text-amber-800 uppercase tracking-wider">
-                Draw Request Received
+            <div className="bg-amber-50 border border-amber-200 p-3 rounded-xl text-center space-y-2.5 animate-bounce">
+              <p className="text-[11px] font-black text-amber-800 uppercase tracking-widest">
+                Draw Proposal Broadcasted
               </p>
-              <div className="flex gap-3">
+              <div className="flex gap-2">
                 <button
                   onClick={handleAcceptDraw}
-                  className="flex-1 bg-amber-500 text-white font-bold py-2 rounded-xl text-sm hover:bg-amber-600 transition shadow-sm"
+                  className="flex-1 bg-amber-500 text-white font-bold py-2 rounded-lg text-xs hover:bg-amber-600 transition shadow-xs"
                 >
                   Accept
                 </button>
                 <button
                   onClick={handleDeclineDraw}
-                  className="flex-1 bg-white border border-amber-300 text-amber-700 font-bold py-2 rounded-xl text-sm hover:bg-amber-50 transition shadow-xs"
+                  className="flex-1 bg-white border border-amber-300 text-amber-700 font-bold py-2 rounded-lg text-xs hover:bg-amber-50 transition"
                 >
                   Decline
                 </button>
@@ -281,39 +297,67 @@ function Game() {
             </div>
           )}
 
-          <h2 className="text-2xl font-bold text-slate-800">Match Live</h2>
-
-          <div className="p-4 bg-slate-50 rounded-2xl border">
-            <p className="text-sm text-slate-500 font-bold uppercase tracking-wider">
-              Current Turn
-            </p>
-            <p
-              className="text-2xl font-black mt-1"
-              style={{ color: activePlayer?.color }}
-            >
-              {activePlayer?.hasResigned ? "Skipped (Resigned)" : activePlayer?.name}
-            </p>
-            <div className="mt-4">
-              <div className="flex justify-between text-xs font-bold mb-1">
-                <span className={isDangerTime ? "text-red-500" : "text-slate-500"}>
-                  Time left
-                </span>
-                <span>{timeLeft}s</span>
-              </div>
-              <div className="w-full bg-slate-200 rounded-full h-2">
-                {/* ✅ FIXED: Calculation ratio scale changed from 30 to 120 */}
-                <div
-                  className={`h-2 rounded-full transition-all duration-1000 ${isDangerTime ? "bg-red-500" : "bg-indigo-600"}`}
-                  style={{ width: `${(timeLeft / 120) * 100}%` }}
-                ></div>
-              </div>
+          {/* Turn Overview Segment */}
+          <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+            <div className="text-left">
+              <p className="text-[10px] text-slate-400 font-black uppercase tracking-wider">
+                Active State
+              </p>
+              <h3
+                className="text-lg font-black tracking-tight flex items-center gap-1.5 mt-0.5"
+                style={{ color: activePlayer?.color }}
+              >
+                <span
+                  className="w-2.5 h-2.5 rounded-full inline-block shadow-inner"
+                  style={{ backgroundColor: activePlayer?.color }}
+                ></span>
+                {activePlayer?.hasResigned
+                  ? "Skipped (Resigned)"
+                  : activePlayer?.name}
+              </h3>
+            </div>
+            <div className="text-right">
+              <p className="text-[10px] text-slate-400 font-black uppercase tracking-wider">
+                Turn Timeline
+              </p>
+              <p
+                className={`text-base font-black mt-0.5 ${isDangerTime ? "text-red-500 animate-pulse font-extrabold" : "text-slate-700"}`}
+              >
+                {timeLeft}s
+              </p>
             </div>
           </div>
 
-          <div className="flex items-center justify-center gap-6">
-            <div className="w-20 h-20 bg-slate-100 border-2 border-dashed border-slate-300 rounded-2xl flex items-center justify-center text-4xl font-black text-slate-700">
-              {roomData?.currentDiceValue || "—"}
+          {/* Dynamic Sync Progress Bar */}
+          <div className="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden">
+            <div
+              className={`h-1.5 rounded-full transition-all duration-1000 ease-linear ${isDangerTime ? "bg-red-500" : "bg-indigo-600"}`}
+              style={{ width: `${(timeLeft / 120) * 100}%` }}
+            ></div>
+          </div>
+
+          {/* 🎲 ACTIONS ENGINE CONSOLE (Optimized Touch Sliders & Nodes) */}
+          <div className="bg-slate-50 border border-slate-100 rounded-xl p-3 md:p-4 flex flex-col sm:flex-row items-center justify-between gap-3 md:gap-4 w-full">
+            {/* Value Dashboard Block */}
+            <div className="flex items-center gap-3">
+              <div className="w-14 h-14 bg-white border border-slate-200 rounded-xl flex items-center justify-center text-2xl font-black text-slate-800 shadow-xs">
+                {roomData?.currentDiceValue || "—"}
+              </div>
+              <div className="text-left hidden sm:block">
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-wide">
+                  Last Shift
+                </p>
+                <p className="text-xs font-bold text-slate-600">
+                  {isMyTurn
+                    ? roomData?.hasRolledThisTurn
+                      ? "Move target piece"
+                      : "Roll the dice cube"
+                    : "Awaiting response"}
+                </p>
+              </div>
             </div>
+
+            {/* Direct Trigger Call to Action Node */}
             <button
               onClick={handleRollDice}
               disabled={
@@ -322,7 +366,7 @@ function Game() {
                 myPlayerState?.hasResigned ||
                 matchEnded
               }
-              className="px-8 py-4 bg-indigo-600 text-white font-bold rounded-xl shadow-md disabled:opacity-40"
+              className="px-6 py-3.5 bg-indigo-600 text-white font-bold text-sm rounded-xl shadow-md hover:bg-indigo-700 disabled:opacity-30 disabled:pointer-events-none active:scale-95 transition-all shrink-0 w-full sm:w-auto text-center"
             >
               {isMyTurn
                 ? roomData?.hasRolledThisTurn
@@ -332,8 +376,8 @@ function Game() {
             </button>
           </div>
 
-          {/* Lifecycle Controls */}
-          <div className="flex gap-4 pt-6 border-t border-slate-100">
+          {/* 🏳️ MATCH CONTROLS MATRIX (Perfect for bottom thumb reach) */}
+          <div className="flex gap-3 pt-2">
             <button
               onClick={handleDrawProposal}
               disabled={
@@ -341,14 +385,14 @@ function Game() {
                 roomData?.drawProposedBy ||
                 matchEnded
               }
-              className="flex-1 bg-slate-100 text-slate-600 font-semibold py-3 rounded-xl hover:bg-slate-200 transition disabled:opacity-50"
+              className="flex-1 bg-slate-50 text-slate-600 border border-slate-200/80 font-bold py-2.5 rounded-xl text-xs hover:bg-slate-100 active:scale-98 transition disabled:opacity-40"
             >
               {roomData?.drawProposedBy ? "Draw Proposed" : "Offer Draw 🤝"}
             </button>
             <button
               onClick={handleResign}
               disabled={myPlayerState?.hasResigned || matchEnded}
-              className="flex-1 bg-red-50 text-red-600 font-semibold py-3 rounded-xl border border-red-200 hover:bg-red-100 transition disabled:opacity-50"
+              className="flex-1 bg-red-50 text-red-600 font-bold py-2.5 rounded-xl text-xs border border-red-100 hover:bg-red-100 active:scale-98 transition disabled:opacity-40"
             >
               {myPlayerState?.hasResigned ? "Resigned 🏳️" : "Resign Match 🏳️"}
             </button>
