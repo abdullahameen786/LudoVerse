@@ -13,6 +13,7 @@ import {
   resignGame,
   proposeDraw,
   acceptDraw,
+  declineDraw, // ✅ Import added here
 } from "../services/gameService";
 import LudoBoard from "../components/game/LudoBoard";
 
@@ -25,7 +26,7 @@ function Game() {
   const [joinInput, setJoinInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [timeLeft, setTimeLeft] = useState(30);
+  const [timeLeft, setTimeLeft] = useState(120); // ✅ Initialized at 120s
 
   useEffect(() => {
     if (!activeRoomCode) return;
@@ -41,7 +42,7 @@ function Game() {
 
   useEffect(() => {
     if (!roomData || roomData.status !== "playing") return;
-    setTimeLeft(30);
+    setTimeLeft(120); // ✅ 2 minutes duration reset
     const timer = setInterval(() => {
       setTimeLeft((prev) => {
         if (prev <= 1) {
@@ -58,7 +59,7 @@ function Game() {
 
   // Handlers
   const handleCreateRoom = async () => {
-    /* ... existing code ... */ setError("");
+    setError("");
     setLoading(true);
     try {
       const code = await createGameRoom(user);
@@ -69,8 +70,9 @@ function Game() {
       setLoading(false);
     }
   };
+
   const handleJoinRoom = async (e) => {
-    /* ... existing code ... */ e.preventDefault();
+    e.preventDefault();
     if (!joinInput.trim()) return;
     setError("");
     setLoading(true);
@@ -89,17 +91,15 @@ function Game() {
     playSound("roll");
     await rollDiceInRoom(activeRoomCode, roomData);
   };
+
   const handleTokenSelect = async (tokenObject) => {
     if (!activeRoomCode || !roomData) return;
     playSound("move");
     await moveTokenInRoom(activeRoomCode, roomData, tokenObject);
   };
 
-  // New Match Lifecycle Handlers
   const handleResign = async () => {
-    if (
-      window.confirm("Are you sure you want to resign? You will lose 50 coins.")
-    ) {
+    if (window.confirm("Are you sure you want to resign? You will lose 50 coins.")) {
       await resignGame(activeRoomCode, roomData, user.uid);
     }
   };
@@ -112,9 +112,11 @@ function Game() {
     await acceptDraw(activeRoomCode, roomData, user.uid);
   };
 
-  // Views (Lobby/Waiting logic omitted for brevity, keeping existing structural layout)
+  const handleDeclineDraw = async () => {
+    await declineDraw(activeRoomCode); // ✅ Declines draw proposal completely
+  };
+
   if (!activeRoomCode) {
-    /* ... Lobby Return (Keep your existing Lobby view here) ... */
     return (
       <div className="flex min-h-[80vh] items-center justify-center px-4 py-12 bg-slate-50">
         <div className="w-full max-w-md rounded-3xl bg-white p-8 text-center shadow-xl border border-slate-100">
@@ -159,7 +161,6 @@ function Game() {
   }
 
   if (roomData && roomData.status === "waiting") {
-    /* ... Waiting Room Return ... */
     return (
       <div className="flex min-h-[80vh] items-center justify-center px-4 py-12 bg-slate-50">
         <div className="w-full max-w-lg rounded-3xl bg-white p-8 shadow-xl border text-center">
@@ -208,13 +209,11 @@ function Game() {
     );
   }
 
-  // Active Game View
   const activePlayer = roomData?.players[roomData.currentTurnIndex];
   const isMyTurn = activePlayer?.uid === user.uid;
-  const isDangerTime = timeLeft <= 10;
+  const isDangerTime = timeLeft <= 15; // ✅ Alert triggers when 15 seconds are left
   const myPlayerState = roomData?.players.find((p) => p.uid === user.uid);
 
-  // Draw State Logic
   const hasPendingDraw =
     roomData?.drawProposedBy && !roomData?.drawAcceptedBy?.includes(user.uid);
   const matchEnded =
@@ -225,15 +224,12 @@ function Game() {
       <div className="w-full max-w-5xl grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
         {/* Playfield Arena Container */}
         <div className="flex justify-center relative bg-white p-4 rounded-3xl shadow-sm border border-slate-100">
-          {/* 🏆 DYNAMIC GAME OVER OVERLAY */}
           {matchEnded && (
             <div className="absolute inset-0 z-30 flex items-center justify-center bg-slate-900/80 backdrop-blur-sm rounded-3xl p-4 animate-fade-in">
               <div className="bg-white p-8 rounded-2xl shadow-2xl text-center border-4 border-indigo-600 max-w-sm w-full space-y-4">
                 <div className="text-5xl">👑</div>
                 <h2 className="text-3xl font-black text-slate-800 tracking-tight">
-                  {roomData.status === "drawn"
-                    ? "Match Drawn 🤝"
-                    : "Victory! 🎉"}
+                  {roomData.status === "drawn" ? "Match Drawn 🤝" : "Victory! 🎉"}
                 </h2>
                 <p className="text-sm font-medium text-slate-500">
                   {roomData.status === "drawn"
@@ -262,18 +258,26 @@ function Game() {
 
         {/* Dashboard Controls */}
         <div className="bg-white rounded-3xl p-8 shadow-xl border text-center space-y-6">
-          {/* Draw Notification Banner */}
+          {/* ✅ ENHANCED DRAW BANNER: Featuring Accept and Decline workflows */}
           {hasPendingDraw && !matchEnded && (
-            <div className="bg-amber-100 border border-amber-300 p-4 rounded-xl mb-4 flex flex-col gap-3">
-              <p className="text-sm font-bold text-amber-800">
-                Another player has proposed a Draw.
+            <div className="bg-amber-50 border border-amber-200 p-4 rounded-2xl text-center space-y-3 mb-4">
+              <p className="text-xs font-bold text-amber-800 uppercase tracking-wider">
+                Draw Request Received
               </p>
-              <button
-                onClick={handleAcceptDraw}
-                className="w-full bg-amber-500 text-white font-bold py-2 rounded-lg hover:bg-amber-600"
-              >
-                Accept Draw
-              </button>
+              <div className="flex gap-3">
+                <button
+                  onClick={handleAcceptDraw}
+                  className="flex-1 bg-amber-500 text-white font-bold py-2 rounded-xl text-sm hover:bg-amber-600 transition shadow-sm"
+                >
+                  Accept
+                </button>
+                <button
+                  onClick={handleDeclineDraw}
+                  className="flex-1 bg-white border border-amber-300 text-amber-700 font-bold py-2 rounded-xl text-sm hover:bg-amber-50 transition shadow-xs"
+                >
+                  Decline
+                </button>
+              </div>
             </div>
           )}
 
@@ -287,23 +291,20 @@ function Game() {
               className="text-2xl font-black mt-1"
               style={{ color: activePlayer?.color }}
             >
-              {activePlayer?.hasResigned
-                ? "Skipped (Resigned)"
-                : activePlayer?.name}
+              {activePlayer?.hasResigned ? "Skipped (Resigned)" : activePlayer?.name}
             </p>
             <div className="mt-4">
               <div className="flex justify-between text-xs font-bold mb-1">
-                <span
-                  className={isDangerTime ? "text-red-500" : "text-slate-500"}
-                >
+                <span className={isDangerTime ? "text-red-500" : "text-slate-500"}>
                   Time left
                 </span>
                 <span>{timeLeft}s</span>
               </div>
               <div className="w-full bg-slate-200 rounded-full h-2">
+                {/* ✅ FIXED: Calculation ratio scale changed from 30 to 120 */}
                 <div
                   className={`h-2 rounded-full transition-all duration-1000 ${isDangerTime ? "bg-red-500" : "bg-indigo-600"}`}
-                  style={{ width: `${(timeLeft / 30) * 100}%` }}
+                  style={{ width: `${(timeLeft / 120) * 100}%` }}
                 ></div>
               </div>
             </div>
@@ -342,7 +343,7 @@ function Game() {
               }
               className="flex-1 bg-slate-100 text-slate-600 font-semibold py-3 rounded-xl hover:bg-slate-200 transition disabled:opacity-50"
             >
-              {roomData?.drawProposedBy ? "Draw Pending..." : "Offer Draw 🤝"}
+              {roomData?.drawProposedBy ? "Draw Proposed" : "Offer Draw 🤝"}
             </button>
             <button
               onClick={handleResign}
