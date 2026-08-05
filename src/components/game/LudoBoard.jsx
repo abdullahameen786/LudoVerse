@@ -13,6 +13,22 @@ function LudoBoard({ players, currentTurnIndex, currentDiceValue, hasRolledThisT
   const activePlayer = players?.[currentTurnIndex];
   const isMyTurn = activePlayer?.uid === user?.uid;
 
+  // 1. CLUSTER LOGIC: Check kitne tokens exact same x,y coordinate par hain
+  const tokenClusters = {};
+  
+  players?.forEach(player => {
+    if (player.hasResigned) return;
+    player.tokens.forEach(token => {
+      // Sirf board (0-56) waley tokens count karein, base (-1) waley nahi
+      if (token.position !== -1) {
+        const coords = getTokenCoordinates(player.color, token.position, token.id);
+        const key = `${coords.x},${coords.y}`;
+        if (!tokenClusters[key]) tokenClusters[key] = [];
+        tokenClusters[key].push({ color: player.color, id: token.id });
+      }
+    });
+  });
+
   return (
     <div className="w-full max-w-[440px] aspect-square bg-white rounded-2xl shadow-xl p-2 border-4 border-slate-800 relative select-none flex items-center justify-center">
       <svg viewBox="0 0 15 15" className="w-full h-full rounded-md border border-slate-700 bg-white">
@@ -79,11 +95,38 @@ function LudoBoard({ players, currentTurnIndex, currentDiceValue, hasRolledThisT
           );
         })}
 
-        {/* Tokens Layer */}
+        {/* Dynamic Tokens Layer */}
         {players?.map((player) =>
           player.tokens.map((token) => {
             if (player.hasResigned) return null;
+            
             const coords = getTokenCoordinates(player.color, token.position, token.id);
+            let cx = coords.x + 0.5;
+            let cy = coords.y + 0.5;
+            let scaleMultiplier = 1;
+
+            // 2. APPLY OFFSET: Agar block par 1 se zyada token hain to shift karein
+            if (token.position !== -1) {
+              const key = `${coords.x},${coords.y}`;
+              const cluster = tokenClusters[key];
+              
+              if (cluster && cluster.length > 1) {
+                // Find index of this specific token in the cluster
+                const index = cluster.findIndex(t => t.color === player.color && t.id === token.id);
+                
+                // Shift coordinates based on their index so they sit side-by-side
+                const shiftAmt = 0.22;
+                if (index === 0) { cx -= shiftAmt; cy -= shiftAmt; }
+                else if (index === 1) { cx += shiftAmt; cy += shiftAmt; }
+                else if (index === 2) { cx -= shiftAmt; cy += shiftAmt; }
+                else if (index === 3) { cx += shiftAmt; cy -= shiftAmt; }
+                else if (index > 3) { cx += 0; cy -= shiftAmt; } // Fallback for heavily stacked zones
+                
+                // Shrink the token radius slightly when clustered so they fit in the block
+                scaleMultiplier = 0.65;
+              }
+            }
+
             const isClickable = isMyTurn && hasRolledThisTurn && player.uid === user.uid && 
                                ((token.position === -1 && currentDiceValue === 6) || token.position >= 0);
 
@@ -94,8 +137,23 @@ function LudoBoard({ players, currentTurnIndex, currentDiceValue, hasRolledThisT
                 className={isClickable ? "cursor-pointer animate-pulse" : ""}
                 style={{ transformBox: "fill-box", transformOrigin: "center" }}
               >
-                <circle cx={coords.x + 0.5} cy={coords.y + 0.5} r="0.35" fill={player.color === "red" ? "#EF4444" : player.color === "green" ? "#10B981" : player.color === "blue" ? "#3B82F6" : "#F59E0B"} stroke="#FFFFFF" strokeWidth="0.05" className={isClickable ? "stroke-indigo-600 brightness-105 shadow" : ""} />
-                <circle cx={coords.x + 0.5} cy={coords.y + 0.5} r="0.15" fill="#FFFFFF" opacity="0.3" />
+                {/* Notice the radius (r) uses the scaleMultiplier */}
+                <circle 
+                  cx={cx} 
+                  cy={cy} 
+                  r={0.35 * scaleMultiplier} 
+                  fill={player.color === "red" ? "#EF4444" : player.color === "green" ? "#10B981" : player.color === "blue" ? "#3B82F6" : "#F59E0B"} 
+                  stroke="#FFFFFF" 
+                  strokeWidth={0.05 * scaleMultiplier} 
+                  className={isClickable ? "stroke-indigo-600 brightness-105 shadow" : ""} 
+                />
+                <circle 
+                  cx={cx} 
+                  cy={cy} 
+                  r={0.15 * scaleMultiplier} 
+                  fill="#FFFFFF" 
+                  opacity="0.3" 
+                />
               </g>
             );
           })
