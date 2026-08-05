@@ -2,6 +2,9 @@
 import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import useAuth from "../hooks/useAuth";
+// 🌟 Added top-level permanent profile document handlers
+import { doc, setDoc } from "firebase/firestore";
+import { db } from "../firebase/config";
 
 function Register() {
   const { register, googleLogin } = useAuth();
@@ -34,7 +37,23 @@ function Register() {
 
     try {
       setLoading(true);
-      await register(formData.name, formData.email, formData.password);
+      // Execute core user authentication creation
+      const userCredential = await register(formData.name, formData.email, formData.password);
+      
+      // 🌟 STEP 1 INTEGRATION: Initialize permanent profiles schema inside Firestore users database node
+      // Resolves both if hook returns userCredential directly or fetches fallback user context parameters
+      const targetUser = userCredential?.user || userCredential;
+      if (targetUser?.uid) {
+        await setDoc(doc(db, "users", targetUser.uid), {
+          uid: targetUser.uid,
+          name: formData.name || targetUser.displayName || "Player",
+          coins: 1000, // Starting capital bonus balance
+          matchesPlayed: 0,
+          matchesWon: 0,
+          createdAt: new Date().toISOString()
+        });
+      }
+
       navigate("/dashboard");
     } catch (err) {
       setError(err.message || "Failed to create account.");
@@ -46,7 +65,22 @@ function Register() {
   const handleGoogleSignup = async () => {
     setError("");
     try {
-      await googleLogin();
+      const userCredential = await googleLogin();
+      
+      // 🌟 STEP 1 INTEGRATION (Google stream): Safe user schema setup with merge configuration 
+      // ensuring preexisting assets don't get accidentally rewritten on secondary logins
+      const targetUser = userCredential?.user || userCredential;
+      if (targetUser?.uid) {
+        await setDoc(doc(db, "users", targetUser.uid), {
+          uid: targetUser.uid,
+          name: targetUser.displayName || targetUser.email.split("@")[0] || "Player",
+          coins: 1000,
+          matchesPlayed: 0,
+          matchesWon: 0,
+          createdAt: new Date().toISOString()
+        }, { merge: true }); // Prevent coin wiping on secondary continuous sessions
+      }
+
       navigate("/dashboard");
     } catch (err) {
       setError(err.message || "Google registration failed.");

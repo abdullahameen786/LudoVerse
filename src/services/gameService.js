@@ -7,6 +7,7 @@ import {
   updateDoc,
   onSnapshot,
   arrayUnion,
+  increment, // 🌟 Added atomic increments utility
 } from "firebase/firestore";
 import { getTokenCoordinates, isSafeZone } from "../utils/ludoMap";
 
@@ -47,7 +48,7 @@ export const createGameRoom = async (user) => {
         tokens: createInitialTokens(),
         hasResigned: false,
         isWinner: false,
-        lastSeen: Date.now(), // 🌟 Heartbeat Initialization
+        lastSeen: Date.now(),
       },
     ],
     createdAt: new Date().toISOString(),
@@ -83,7 +84,7 @@ export const joinGameRoom = async (roomCode, user) => {
       tokens: createInitialTokens(),
       hasResigned: false,
       isWinner: false,
-      lastSeen: Date.now(), // 🌟 Heartbeat Initialization
+      lastSeen: Date.now(),
     }),
   });
 
@@ -113,7 +114,6 @@ export const rollDiceInRoom = async (roomCode, currentRoomData) => {
     let nextTurnIndex =
       (currentRoomData.currentTurnIndex + 1) % currentRoomData.players.length;
 
-    // 🛠️ BUG FIX: Skip any players who have disconnected or resigned
     while (currentRoomData.players[nextTurnIndex].hasResigned) {
       nextTurnIndex = (nextTurnIndex + 1) % currentRoomData.players.length;
     }
@@ -161,15 +161,12 @@ export const moveTokenInRoom = async (
         t.id === tokenObject.id ? { ...t, position: newPosIndex } : t,
       );
 
-      // 🏆 STRICT INITIALIZATION AND WIN CHECK:
-      // Tasdeeq karein ke tokens array valid hai aur usme pieces poore hain (length === 4)
       const tokenArray = updatedTokens || [];
       const totalFinished =
         tokenArray.length === 4
           ? tokenArray.filter((t) => t.position === 56).length
           : 0;
 
-      // Sirf aur sirf tabhi true hoga jab waqai saare 4 tokens position 56 par pohonchein ge
       const hasWon = totalFinished === 4;
 
       return { ...player, tokens: tokenArray, isWinner: hasWon };
@@ -193,7 +190,6 @@ export const moveTokenInRoom = async (
   const activePlayerState = updatedPlayers[turnIndex];
   let gameStatus = currentRoomData.status;
 
-  // Strict execution control: Jab tak hasWon confirm real data state par validate na ho, gameStatus finished nahi hoga
   if (activePlayerState.isWinner) {
     gameStatus = "finished";
   }
@@ -206,7 +202,32 @@ export const moveTokenInRoom = async (
     }
   }
 
-  // src/services/gameService.js inside moveTokenInRoom function end block update:
+  // 🌟 STEP 1 INTEGRATION: Process profiles transaction balance if the match hits standard validation win state
+  if (gameStatus === "finished") {
+    try {
+      await Promise.all(
+        updatedPlayers.map(async (p) => {
+          const userProfileRef = doc(db, "users", p.uid);
+          if (p.isWinner) {
+            // Winner gets +200 gold coins boost
+            await updateDoc(userProfileRef, {
+              coins: increment(200),
+              matchesWon: increment(1),
+              matchesPlayed: increment(1),
+            });
+          } else {
+            // Normal participants get incremental history updates without deduction penalty
+            await updateDoc(userProfileRef, {
+              matchesPlayed: increment(1),
+            });
+          }
+        })
+      );
+    } catch (billingErr) {
+      console.error("Match win payout settlement failed safely:", billingErr);
+    }
+  }
+
   await updateDoc(roomRef, {
     players: updatedPlayers,
     currentDiceValue: null,
@@ -216,7 +237,6 @@ export const moveTokenInRoom = async (
     winnerName: activePlayerState.isWinner
       ? activePlayerState.name
       : currentRoomData.winnerName || null,
-    // 🌟 ATOMIC SYNC FORCE: Inject fresh tracking marker during standard game movements
     [`pings.${activePlayer.uid}`]: Date.now(),
   });
 };
@@ -227,7 +247,6 @@ export const skipTurn = async (roomCode, currentRoomData) => {
   let nextTurnIndex =
     (currentRoomData.currentTurnIndex + 1) % currentRoomData.players.length;
 
-  // 🛠️ BUG FIX: Skip any players who have disconnected or resigned
   while (currentRoomData.players[nextTurnIndex].hasResigned) {
     nextTurnIndex = (nextTurnIndex + 1) % currentRoomData.players.length;
   }
@@ -259,14 +278,42 @@ export const resignGame = async (roomCode, currentRoomData, userId) => {
     return p;
   });
 
+  // 🌟 STEP 1 INTEGRATION: Deduct 50 coins penalty asynchronously from the current user document node
+  try {
+    const userProfileRef = doc(db, "users", userId);
+    await updateDoc(userProfileRef, {
+      coins: increment(-50),
+      matchesPlayed: increment(1),
+    });
+  } catch (billingErr) {
+    console.error("Resignation balance extraction trace exception:", billingErr);
+  }
+
   const activePlayers = updatedPlayers.filter((p) => !p.hasResigned);
   const status =
     activePlayers.length <= 1 ? "finished" : currentRoomData.status;
 
   let nextTurnIndex = currentRoomData.currentTurnIndex;
+  let finalWinnerName = currentRoomData.winnerName || null;
+
+  // 🌟 STEP 1 INTEGRATION: Reward last remaining active survivor player if all opponents resigned
+  if (status === "finished" && activePlayers.length === 1) {
+    const survivor = activePlayers[0];
+    finalWinnerName = survivor.name;
+    try {
+      const survivorProfileRef = doc(db, "users", survivor.uid);
+      await updateDoc(survivorProfileRef, {
+        coins: increment(150), // Last standing champion award package
+        matchesWon: increment(1),
+        matchesPlayed: increment(1),
+      });
+    } catch (survivorErr) {
+      console.error("Survivor bonus allocation failed:", survivorErr);
+    }
+  }
+
   if (currentRoomData.players[nextTurnIndex].uid === userId) {
     nextTurnIndex = (nextTurnIndex + 1) % currentRoomData.players.length;
-    // Ensure we don't land on another resigned player
     while (
       updatedPlayers[nextTurnIndex].hasResigned &&
       activePlayers.length > 1
@@ -279,6 +326,7 @@ export const resignGame = async (roomCode, currentRoomData, userId) => {
     players: updatedPlayers,
     status: status,
     currentTurnIndex: nextTurnIndex,
+    winnerName: finalWinnerName,
   });
 };
 
@@ -301,6 +349,21 @@ export const acceptDraw = async (roomCode, currentRoomData, userId) => {
   ).length;
 
   if (newAccepted.length >= activePlayerCount) {
+    // 🌟 STEP 1 INTEGRATION: If match is split in a consensual draw, update match counts for all active survivors
+    try {
+      await Promise.all(
+        currentRoomData.players.map(async (p) => {
+          if (!p.hasResigned) {
+            await updateDoc(doc(db, "users", p.uid), {
+              matchesPlayed: increment(1),
+            });
+          }
+        })
+      );
+    } catch (drawErr) {
+      console.error("Draw stats update transaction error:", drawErr);
+    }
+
     await updateDoc(roomRef, {
       status: "drawn",
       drawAcceptedBy: newAccepted,
