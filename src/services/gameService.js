@@ -1,6 +1,13 @@
 // src/services/gameService.js
 import { db } from "../firebase/config";
-import { doc, setDoc, getDoc, updateDoc, onSnapshot, arrayUnion } from "firebase/firestore";
+import {
+  doc,
+  setDoc,
+  getDoc,
+  updateDoc,
+  onSnapshot,
+  arrayUnion,
+} from "firebase/firestore";
 import { getTokenCoordinates, isSafeZone } from "../utils/ludoMap";
 
 // Generate a random 6-character alphanumeric room code
@@ -14,7 +21,7 @@ const createInitialTokens = () => {
     { id: 0, position: -1 },
     { id: 1, position: -1 },
     { id: 2, position: -1 },
-    { id: 3, position: -1 }
+    { id: 3, position: -1 },
   ];
 };
 
@@ -31,14 +38,19 @@ export const createGameRoom = async (user) => {
     currentTurnIndex: 0,
     currentDiceValue: null,
     hasRolledThisTurn: false,
-    players: [{
-      uid: user.uid,
-      name: playerName,
-      color: "red",
-      isHost: true,
-      tokens: createInitialTokens()
-    }],
-    createdAt: new Date().toISOString()
+    players: [
+      {
+        uid: user.uid,
+        name: playerName,
+        color: "red",
+        isHost: true,
+        tokens: createInitialTokens(),
+        hasResigned: false,
+        isWinner: false,
+        lastSeen: Date.now(), // 🌟 Heartbeat Initialization
+      },
+    ],
+    createdAt: new Date().toISOString(),
   };
 
   await setDoc(roomRef, roomData);
@@ -68,8 +80,11 @@ export const joinGameRoom = async (roomCode, user) => {
       name: playerName,
       color: assignedColor,
       isHost: false,
-      tokens: createInitialTokens()
-    })
+      tokens: createInitialTokens(),
+      hasResigned: false,
+      isWinner: false,
+      lastSeen: Date.now(), // 🌟 Heartbeat Initialization
+    }),
   });
 
   return formattedCode;
@@ -85,68 +100,88 @@ export const startGame = async (roomCode) => {
 export const rollDiceInRoom = async (roomCode, currentRoomData) => {
   const roomRef = doc(db, "games", roomCode);
   const rolledValue = Math.floor(Math.random() * 6) + 1;
-  
-  // Check if active player has any movable tokens with this roll
-  const activePlayer = currentRoomData.players[currentRoomData.currentTurnIndex];
-  const hasMovableTokens = activePlayer.tokens.some(token => {
-    if (token.position === -1 && rolledValue === 6) return true; // Can spawn
-    if (token.position >= 0 && token.position + rolledValue <= 56) return true; // Can move forward
+
+  const activePlayer =
+    currentRoomData.players[currentRoomData.currentTurnIndex];
+  const hasMovableTokens = activePlayer.tokens.some((token) => {
+    if (token.position === -1 && rolledValue === 6) return true;
+    if (token.position >= 0 && token.position + rolledValue <= 56) return true;
     return false;
   });
 
-  // If no tokens can move, pass turn immediately
   if (!hasMovableTokens) {
-    const nextTurnIndex = (currentRoomData.currentTurnIndex + 1) % currentRoomData.players.length;
+    let nextTurnIndex =
+      (currentRoomData.currentTurnIndex + 1) % currentRoomData.players.length;
+
+    // 🛠️ BUG FIX: Skip any players who have disconnected or resigned
+    while (currentRoomData.players[nextTurnIndex].hasResigned) {
+      nextTurnIndex = (nextTurnIndex + 1) % currentRoomData.players.length;
+    }
+
     await updateDoc(roomRef, {
       currentDiceValue: rolledValue,
       currentTurnIndex: nextTurnIndex,
-      hasRolledThisTurn: false
+      hasRolledThisTurn: false,
     });
   } else {
-    // Player rolled a valid number and has pieces to move, lock dice until they click a token
     await updateDoc(roomRef, {
       currentDiceValue: rolledValue,
-      hasRolledThisTurn: true
+      hasRolledThisTurn: true,
     });
   }
 };
 
-
-
-export const moveTokenInRoom = async (roomCode, currentRoomData, tokenObject) => {
+export const moveTokenInRoom = async (
+  roomCode,
+  currentRoomData,
+  tokenObject,
+) => {
   const roomRef = doc(db, "games", roomCode);
   const diceValue = currentRoomData.currentDiceValue;
   const turnIndex = currentRoomData.currentTurnIndex;
-  
+
   if (tokenObject.position === -1 && diceValue !== 6) return;
-  if (tokenObject.position >= 0 && tokenObject.position + diceValue > 56) return;
+  if (tokenObject.position >= 0 && tokenObject.position + diceValue > 56)
+    return;
 
   const activePlayer = currentRoomData.players[turnIndex];
-  const newPosIndex = tokenObject.position === -1 ? 0 : tokenObject.position + diceValue;
-  const landingCoords = getTokenCoordinates(activePlayer.color, newPosIndex, tokenObject.id);
-  
+  const newPosIndex =
+    tokenObject.position === -1 ? 0 : tokenObject.position + diceValue;
+  const landingCoords = getTokenCoordinates(
+    activePlayer.color,
+    newPosIndex,
+    tokenObject.id,
+  );
+
   let madeACapture = false;
 
   const updatedPlayers = currentRoomData.players.map((player, pIdx) => {
     if (pIdx === turnIndex) {
-      const updatedTokens = player.tokens.map(t => 
-        t.id === tokenObject.id ? { ...t, position: newPosIndex } : t
+      const updatedTokens = player.tokens.map((t) =>
+        t.id === tokenObject.id ? { ...t, position: newPosIndex } : t,
       );
-      
-      // 🏆 WIN CONDITION CHECK: Dekhein kya is player ke saare 4 tokens 56 par hain?
-      const totalFinished = updatedTokens.filter(t => t.position === 56).length;
+
+      // 🏆 STRICT INITIALIZATION AND WIN CHECK:
+      // Tasdeeq karein ke tokens array valid hai aur usme pieces poore hain (length === 4)
+      const tokenArray = updatedTokens || [];
+      const totalFinished =
+        tokenArray.length === 4
+          ? tokenArray.filter((t) => t.position === 56).length
+          : 0;
+
+      // Sirf aur sirf tabhi true hoga jab waqai saare 4 tokens position 56 par pohonchein ge
       const hasWon = totalFinished === 4;
 
-      return { ...player, tokens: updatedTokens, isWinner: hasWon };
+      return { ...player, tokens: tokenArray, isWinner: hasWon };
     }
-    
-    const checkedTokens = player.tokens.map(t => {
+
+    const checkedTokens = player.tokens.map((t) => {
       if (t.position < 0 || t.position > 50) return t;
       const oppCoords = getTokenCoordinates(player.color, t.position, t.id);
       if (oppCoords.x === landingCoords.x && oppCoords.y === landingCoords.y) {
         if (!isSafeZone(landingCoords.x, landingCoords.y)) {
           madeACapture = true;
-          return { ...t, position: -1 }; 
+          return { ...t, position: -1 };
         }
       }
       return t;
@@ -155,43 +190,52 @@ export const moveTokenInRoom = async (roomCode, currentRoomData, tokenObject) =>
     return { ...player, tokens: checkedTokens };
   });
 
-  // Check karein agar active player jeet gaya hai
   const activePlayerState = updatedPlayers[turnIndex];
   let gameStatus = currentRoomData.status;
-  
+
+  // Strict execution control: Jab tak hasWon confirm real data state par validate na ho, gameStatus finished nahi hoga
   if (activePlayerState.isWinner) {
-    gameStatus = "finished"; // Game status ko close kar dein
+    gameStatus = "finished";
   }
 
   let nextTurnIndex = turnIndex;
-  // Agar game khatam nahi hui aur 6 nahi aya ya capture nahi hui, tabhi turn next karein
   if (gameStatus !== "finished" && diceValue !== 6 && !madeACapture) {
     nextTurnIndex = (turnIndex + 1) % currentRoomData.players.length;
-    // Agar next player already resign kar chuka hai, to usse aage wale par shift karein
     while (updatedPlayers[nextTurnIndex].hasResigned) {
       nextTurnIndex = (nextTurnIndex + 1) % updatedPlayers.length;
     }
   }
 
+  // src/services/gameService.js inside moveTokenInRoom function end block update:
   await updateDoc(roomRef, {
     players: updatedPlayers,
     currentDiceValue: null,
     currentTurnIndex: nextTurnIndex,
     hasRolledThisTurn: false,
-    status: gameStatus, // Update status in Firestore
-    winnerName: activePlayerState.isWinner ? activePlayerState.name : (currentRoomData.winnerName || null)
+    status: gameStatus,
+    winnerName: activePlayerState.isWinner
+      ? activePlayerState.name
+      : currentRoomData.winnerName || null,
+    // 🌟 ATOMIC SYNC FORCE: Inject fresh tracking marker during standard game movements
+    [`pings.${activePlayer.uid}`]: Date.now(),
   });
 };
 
 // Force skip a turn if a player takes too long
 export const skipTurn = async (roomCode, currentRoomData) => {
   const roomRef = doc(db, "games", roomCode);
-  const nextTurnIndex = (currentRoomData.currentTurnIndex + 1) % currentRoomData.players.length;
-  
+  let nextTurnIndex =
+    (currentRoomData.currentTurnIndex + 1) % currentRoomData.players.length;
+
+  // 🛠️ BUG FIX: Skip any players who have disconnected or resigned
+  while (currentRoomData.players[nextTurnIndex].hasResigned) {
+    nextTurnIndex = (nextTurnIndex + 1) % currentRoomData.players.length;
+  }
+
   await updateDoc(roomRef, {
     currentTurnIndex: nextTurnIndex,
     currentDiceValue: null,
-    hasRolledThisTurn: false
+    hasRolledThisTurn: false,
   });
 };
 
@@ -204,35 +248,37 @@ export const subscribeToRoom = (roomCode, callback) => {
   });
 };
 
-
-// Add this to the bottom of src/services/gameService.js
-
 // Handle a player resigning from the match
 export const resignGame = async (roomCode, currentRoomData, userId) => {
   const roomRef = doc(db, "games", roomCode);
-  
-  // Mark player as resigned and deduct coins (Mocking coin deduction in room state)
-  const updatedPlayers = currentRoomData.players.map(p => {
+
+  const updatedPlayers = currentRoomData.players.map((p) => {
     if (p.uid === userId) {
-      return { ...p, hasResigned: true, coins: (p.coins || 1000) - 50 }; // -50 coin penalty
+      return { ...p, hasResigned: true, coins: (p.coins || 1000) - 50 };
     }
     return p;
   });
 
-  // Check if only one player is left after this resignation
-  const activePlayers = updatedPlayers.filter(p => !p.hasResigned);
-  const status = activePlayers.length <= 1 ? "finished" : currentRoomData.status;
+  const activePlayers = updatedPlayers.filter((p) => !p.hasResigned);
+  const status =
+    activePlayers.length <= 1 ? "finished" : currentRoomData.status;
 
-  // If the resigning player is the current turn, skip their turn
   let nextTurnIndex = currentRoomData.currentTurnIndex;
   if (currentRoomData.players[nextTurnIndex].uid === userId) {
     nextTurnIndex = (nextTurnIndex + 1) % currentRoomData.players.length;
+    // Ensure we don't land on another resigned player
+    while (
+      updatedPlayers[nextTurnIndex].hasResigned &&
+      activePlayers.length > 1
+    ) {
+      nextTurnIndex = (nextTurnIndex + 1) % currentRoomData.players.length;
+    }
   }
 
   await updateDoc(roomRef, {
     players: updatedPlayers,
     status: status,
-    currentTurnIndex: nextTurnIndex
+    currentTurnIndex: nextTurnIndex,
   });
 };
 
@@ -241,7 +287,7 @@ export const proposeDraw = async (roomCode, userId) => {
   const roomRef = doc(db, "games", roomCode);
   await updateDoc(roomRef, {
     drawProposedBy: userId,
-    drawAcceptedBy: arrayUnion(userId) // Proposer auto-accepts
+    drawAcceptedBy: arrayUnion(userId),
   });
 };
 
@@ -249,28 +295,28 @@ export const proposeDraw = async (roomCode, userId) => {
 export const acceptDraw = async (roomCode, currentRoomData, userId) => {
   const roomRef = doc(db, "games", roomCode);
   const newAccepted = [...(currentRoomData.drawAcceptedBy || []), userId];
-  
-  // Count how many players haven't resigned
-  const activePlayerCount = currentRoomData.players.filter(p => !p.hasResigned).length;
 
-  // If everyone active accepted, end the game in a draw
+  const activePlayerCount = currentRoomData.players.filter(
+    (p) => !p.hasResigned,
+  ).length;
+
   if (newAccepted.length >= activePlayerCount) {
     await updateDoc(roomRef, {
       status: "drawn",
-      drawAcceptedBy: newAccepted
+      drawAcceptedBy: newAccepted,
     });
   } else {
     await updateDoc(roomRef, {
-      drawAcceptedBy: arrayUnion(userId)
+      drawAcceptedBy: arrayUnion(userId),
     });
   }
 };
 
-// NEW: Rejecting a draw completely terminates the vote configuration for everyone
+// Rejecting a draw completely terminates the vote configuration for everyone
 export const declineDraw = async (roomCode) => {
   const roomRef = doc(db, "games", roomCode);
   await updateDoc(roomRef, {
     drawProposedBy: null,
-    drawAcceptedBy: null
+    drawAcceptedBy: null,
   });
 };
