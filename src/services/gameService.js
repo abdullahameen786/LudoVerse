@@ -111,22 +111,17 @@ export const rollDiceInRoom = async (roomCode, currentRoomData) => {
   }
 };
 
-// Execute moves, calculate collisions, and process captures
-// Execute moves, calculate collisions, and process captures
+
+
 export const moveTokenInRoom = async (roomCode, currentRoomData, tokenObject) => {
   const roomRef = doc(db, "games", roomCode);
   const diceValue = currentRoomData.currentDiceValue;
   const turnIndex = currentRoomData.currentTurnIndex;
   
-  // --- STRICT MOVE VALIDATION ---
-  // 1. Prevent moving out of yard without a 6
   if (tokenObject.position === -1 && diceValue !== 6) return;
-  
-  // 2. Prevent overshooting the victory center
   if (tokenObject.position >= 0 && tokenObject.position + diceValue > 56) return;
 
   const activePlayer = currentRoomData.players[turnIndex];
-  
   const newPosIndex = tokenObject.position === -1 ? 0 : tokenObject.position + diceValue;
   const landingCoords = getTokenCoordinates(activePlayer.color, newPosIndex, tokenObject.id);
   
@@ -137,14 +132,17 @@ export const moveTokenInRoom = async (roomCode, currentRoomData, tokenObject) =>
       const updatedTokens = player.tokens.map(t => 
         t.id === tokenObject.id ? { ...t, position: newPosIndex } : t
       );
-      return { ...player, tokens: updatedTokens };
+      
+      // 🏆 WIN CONDITION CHECK: Dekhein kya is player ke saare 4 tokens 56 par hain?
+      const totalFinished = updatedTokens.filter(t => t.position === 56).length;
+      const hasWon = totalFinished === 4;
+
+      return { ...player, tokens: updatedTokens, isWinner: hasWon };
     }
     
     const checkedTokens = player.tokens.map(t => {
       if (t.position < 0 || t.position > 50) return t;
-
       const oppCoords = getTokenCoordinates(player.color, t.position, t.id);
-      
       if (oppCoords.x === landingCoords.x && oppCoords.y === landingCoords.y) {
         if (!isSafeZone(landingCoords.x, landingCoords.y)) {
           madeACapture = true;
@@ -157,16 +155,31 @@ export const moveTokenInRoom = async (roomCode, currentRoomData, tokenObject) =>
     return { ...player, tokens: checkedTokens };
   });
 
+  // Check karein agar active player jeet gaya hai
+  const activePlayerState = updatedPlayers[turnIndex];
+  let gameStatus = currentRoomData.status;
+  
+  if (activePlayerState.isWinner) {
+    gameStatus = "finished"; // Game status ko close kar dein
+  }
+
   let nextTurnIndex = turnIndex;
-  if (diceValue !== 6 && !madeACapture) {
+  // Agar game khatam nahi hui aur 6 nahi aya ya capture nahi hui, tabhi turn next karein
+  if (gameStatus !== "finished" && diceValue !== 6 && !madeACapture) {
     nextTurnIndex = (turnIndex + 1) % currentRoomData.players.length;
+    // Agar next player already resign kar chuka hai, to usse aage wale par shift karein
+    while (updatedPlayers[nextTurnIndex].hasResigned) {
+      nextTurnIndex = (nextTurnIndex + 1) % updatedPlayers.length;
+    }
   }
 
   await updateDoc(roomRef, {
     players: updatedPlayers,
     currentDiceValue: null,
     currentTurnIndex: nextTurnIndex,
-    hasRolledThisTurn: false
+    hasRolledThisTurn: false,
+    status: gameStatus, // Update status in Firestore
+    winnerName: activePlayerState.isWinner ? activePlayerState.name : (currentRoomData.winnerName || null)
   });
 };
 
