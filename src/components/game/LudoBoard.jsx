@@ -2,14 +2,14 @@
 import React from "react";
 import { getTokenCoordinates, SAFE_ZONES } from "../../utils/ludoMap";
 
+// ✅ FIXED: Swapped Yellow and Blue Corners to match engine coordinates
 const CORNERS = {
-  red: { x: 0, y: 0 },
-  green: { x: 9, y: 0 },
-  blue: { x: 0, y: 9 },
-  yellow: { x: 9, y: 9 }
+  red: { x: 0, y: 0 },       // Top-Left
+  green: { x: 9, y: 0 },     // Top-Right
+  yellow: { x: 0, y: 9 },    // Bottom-Left
+  blue: { x: 9, y: 9 }       // Bottom-Right
 };
 
-// Helper function to check if cell coordinates match a registered safe zone
 const checkIsSafeTile = (r, c) => {
   return SAFE_ZONES.some(zone => zone.x === c && zone.y === r);
 };
@@ -18,7 +18,6 @@ function LudoBoard({ players, currentTurnIndex, currentDiceValue, hasRolledThisT
   const activePlayer = players?.[currentTurnIndex];
   const isMyTurn = activePlayer?.uid === user?.uid;
 
-  // CLUSTER LOGIC: Check kitne tokens exact same x,y coordinate par hain
   const tokenClusters = {};
   
   players?.forEach(player => {
@@ -37,11 +36,11 @@ function LudoBoard({ players, currentTurnIndex, currentDiceValue, hasRolledThisT
     <div className="w-full max-w-[440px] aspect-square bg-white rounded-2xl shadow-xl p-2 border-4 border-slate-800 relative select-none flex items-center justify-center">
       <svg viewBox="0 0 15 15" className="w-full h-full rounded-md border border-slate-700 bg-white">
         
-        {/* Base Matrix Quadrants */}
-        <rect x="0" y="0" width="6" height="6" fill="#EF4444" stroke="#1E293B" strokeWidth="0.05" />
-        <rect x="9" y="0" width="6" height="6" fill="#10B981" stroke="#1E293B" strokeWidth="0.05" />
-        <rect x="0" y="9" width="6" height="6" fill="#3B82F6" stroke="#1E293B" strokeWidth="0.05" />
-        <rect x="9" y="9" width="6" height="6" fill="#F59E0B" stroke="#1E293B" strokeWidth="0.05" />
+        {/* ✅ FIXED: Base Matrix Quadrants Colors */}
+        <rect x="0" y="0" width="6" height="6" fill="#EF4444" stroke="#1E293B" strokeWidth="0.05" /> {/* Red */}
+        <rect x="9" y="0" width="6" height="6" fill="#10B981" stroke="#1E293B" strokeWidth="0.05" /> {/* Green */}
+        <rect x="0" y="9" width="6" height="6" fill="#F59E0B" stroke="#1E293B" strokeWidth="0.05" /> {/* Yellow (Bottom-Left) */}
+        <rect x="9" y="9" width="6" height="6" fill="#3B82F6" stroke="#1E293B" strokeWidth="0.05" /> {/* Blue (Bottom-Right) */}
 
         {/* Inner Yards */}
         <rect x="1" y="1" width="4" height="4" fill="#FFFFFF" rx="0.2" />
@@ -58,52 +57,25 @@ function LudoBoard({ players, currentTurnIndex, currentDiceValue, hasRolledThisT
               let fill = "#FFFFFF";
               const isSafe = checkIsSafeTile(r, c);
 
-              // Color mappings for starting paths
-              if (r === 7 && c > 0 && c < 6) fill = "#EF4444";
-              if (c === 7 && r > 0 && r < 6) fill = "#10B981";
-              if (c === 7 && r > 8 && r < 14) fill = "#F59E0B";
-              if (r === 7 && c > 8 && c < 14) fill = "#3B82F6";
-              if (r === 6 && c === 1) fill = "#EF4444";
-              if (r === 1 && c === 8) fill = "#10B981";
-              if (r === 8 && c === 13) fill = "#F59E0B";
-              if (r === 13 && c === 6) fill = "#3B82F6";
+              // ✅ FIXED: Home Track Colors
+              if (r === 7 && c > 0 && c < 6) fill = "#EF4444"; // Red (Left)
+              if (c === 7 && r > 0 && r < 6) fill = "#10B981"; // Green (Top)
+              if (r === 7 && c > 8 && c < 14) fill = "#3B82F6"; // Blue (Right)
+              if (c === 7 && r > 8 && r < 14) fill = "#F59E0B"; // Yellow (Bottom)
 
-              // 🌟 SAFE ZONE RE-STYLING: Safe tile par alag look apply karein
-              if (isSafe && fill === "#FFFFFF") {
-                // Indigo-based light tint pattern for safety highlighting
-                fill = "#EEF2FF"; 
-              }
+              // ✅ FIXED: Start Tile Colors
+              if (r === 6 && c === 1) fill = "#EF4444"; // Red Start
+              if (r === 1 && c === 8) fill = "#10B981"; // Green Start
+              if (r === 8 && c === 13) fill = "#3B82F6"; // Blue Start (Right side)
+              if (r === 13 && c === 6) fill = "#F59E0B"; // Yellow Start (Bottom side)
+
+              if (isSafe && fill === "#FFFFFF") fill = "#EEF2FF"; 
 
               return (
                 <g key={`tile-${r}-${c}`}>
-                  <rect 
-                    x={c} 
-                    y={r} 
-                    width="1" 
-                    height="1" 
-                    fill={fill} 
-                    // Safe zone border highlight
-                    stroke={isSafe ? "#312E81" : "#1E293B"} 
-                    strokeWidth={isSafe ? "0.08" : "0.04"} 
-                  />
-                  {/* Subtle inner-shadow aesthetic simulation for pressed feel on safety */}
-                  {isSafe && (
-                    <rect x={c+0.05} y={r+0.05} width="0.9" height="0.9" fill="#E0E7FF" opacity="0.4" rx="0.05"/>
-                  )}
-                  {/* 🌟 VECTOR LABEL INSIDE SAFE TILE: Aggr safe hai to text render karein */}
-                  {isSafe && (
-                    <text 
-                      x={c + 0.5} 
-                      y={r + 0.64} 
-                      textAnchor="middle" 
-                      fill="#1E1B4B" 
-                      fontSize="0.36" 
-                      fontWeight="black" 
-                      className="pointer-events-none select-none tracking-tighter"
-                    >
-                      ★
-                    </text>
-                  )}
+                  <rect x={c} y={r} width="1" height="1" fill={fill} stroke={isSafe ? "#312E81" : "#1E293B"} strokeWidth={isSafe ? "0.08" : "0.04"} />
+                  {isSafe && <rect x={c+0.05} y={r+0.05} width="0.9" height="0.9" fill="#E0E7FF" opacity="0.4" rx="0.05"/>}
+                  {isSafe && <text x={c + 0.5} y={r + 0.64} textAnchor="middle" fill="#1E1B4B" fontSize="0.36" fontWeight="black" className="pointer-events-none select-none">★</text>}
                 </g>
               );
             }
@@ -111,30 +83,44 @@ function LudoBoard({ players, currentTurnIndex, currentDiceValue, hasRolledThisT
           })
         )}
 
-        {/* Victory Terminus Center Zones */}
-        <polygon points="6,6 9,6 7.5,7.5" fill="#10B981" stroke="#1E293B" strokeWidth="0.05" />
-        <polygon points="9,6 9,9 7.5,7.5" fill="#3B82F6" stroke="#1E293B" strokeWidth="0.05" />
-        <polygon points="6,9 9,9 7.5,7.5" fill="#F59E0B" stroke="#1E293B" strokeWidth="0.05" />
-        <polygon points="6,6 6,9 7.5,7.5" fill="#EF4444" stroke="#1E293B" strokeWidth="0.05" />
+        {/* ✅ FIXED: Victory Terminus Center Triangles */}
+        <polygon points="6,6 9,6 7.5,7.5" fill="#10B981" stroke="#1E293B" strokeWidth="0.05" /> {/* Green (Top) */}
+        <polygon points="9,6 9,9 7.5,7.5" fill="#3B82F6" stroke="#1E293B" strokeWidth="0.05" /> {/* Blue (Right) */}
+        <polygon points="6,9 9,9 7.5,7.5" fill="#F59E0B" stroke="#1E293B" strokeWidth="0.05" /> {/* Yellow (Bottom) */}
+        <polygon points="6,6 6,9 7.5,7.5" fill="#EF4444" stroke="#1E293B" strokeWidth="0.05" /> {/* Red (Left) */}
 
-        {/* Scaled HTML Profile Cards Overlay */}
+        {/* Pure SVG Profile Pill Badges */}
         {players?.map((player) => {
           const corner = CORNERS[player.color];
           if (!corner) return null;
+          
+          const displayName = player.name.length > 8 ? player.name.substring(0, 8) + ".." : player.name;
+          
           return (
-            <foreignObject key={`stats-${player.uid}`} x={corner.x + 0.5} y={corner.y + 0.5} width="5" height="5">
-              <div className={`w-full h-full flex items-center justify-center p-0.5 ${player.hasResigned ? 'opacity-20 grayscale' : ''}`}>
-                <div className="bg-white/95 rounded border border-slate-300 shadow-sm text-center p-1 w-full max-w-[70px] pointer-events-none select-none">
-                  <p className="font-extrabold text-[9px] truncate text-slate-800 tracking-tight">{player.name}</p>
-                  <div className="flex justify-center gap-0.5 text-[6px] text-slate-500 font-bold scale-90 origin-center mt-0.5">
-                    <span>M:12</span>
-                    <span className="text-green-600">W:4</span>
-                    <span className="text-amber-600">D:2</span>
-                  </div>
-                  <p className="text-[7px] font-bold text-amber-500 mt-0.5">🪙{player.coins ?? 1000}</p>
-                </div>
-              </div>
-            </foreignObject>
+            <g key={`stats-${player.uid}`} className={`pointer-events-none select-none ${player.hasResigned ? 'opacity-30 grayscale' : ''}`}>
+              <rect 
+                x={corner.x + 0.8} 
+                y={corner.y + 4.85} 
+                width="4.4" 
+                height="0.85" 
+                rx="0.4" 
+                fill="#FFFFFF" 
+                stroke="#1E293B" 
+                strokeWidth="0.05"
+                opacity="0.95"
+              />
+              <text 
+                x={corner.x + 3} 
+                y={corner.y + 5.42} 
+                textAnchor="middle" 
+                fill="#0F172A" 
+                fontSize="0.36" 
+                fontWeight="900"
+                className="uppercase tracking-widest"
+              >
+                {displayName} <tspan fill="#F59E0B">🪙{player.coins ?? 1000}</tspan>
+              </text>
+            </g>
           );
         })}
 
