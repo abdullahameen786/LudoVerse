@@ -383,3 +383,29 @@ export const declineDraw = async (roomCode) => {
     drawAcceptedBy: null,
   });
 };
+
+
+
+// =========================================================================
+// 💬 IN-GAME LIVE CHAT & QUICK EXPRESSIONS SERVICE ACTIONS
+// =========================================================================
+
+/**
+ * Pushes a new text message or fast-reaction emote straight to the live match stream array chunk.
+ * Clamps messages timeline structure cleanly inside the running room document node.
+ */
+export const sendChatMessage = async (roomCode, playerColor, playerName, textPayload) => {
+  const roomRef = doc(db, "games", roomCode.toUpperCase());
+  
+  const newMessageNode = {
+    id: `msg-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+    senderName: playerName,
+    senderColor: playerColor,
+    text: textPayload.trim(),
+    timestamp: new Date().toISOString()
+  };
+
+  await updateDoc(roomRef, {
+    chatMessages: arrayUnion(newMessageNode)
+  });
+};

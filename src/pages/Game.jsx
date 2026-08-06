@@ -4,6 +4,7 @@ import useAuth from "../hooks/useAuth";
 import useAudio from "../hooks/useAudio";
 import { doc, updateDoc } from "firebase/firestore";
 import { db } from "../firebase/config";
+import GameChat from "../components/game/GameChat";
 
 import {
   createGameRoom,
@@ -73,10 +74,13 @@ function Game() {
     return () => clearInterval(timer);
   }, [roomData?.currentTurnIndex, roomData?.status, activeRoomCode, user.uid]);
 
-  // 3. SAFE ATOMIC HEARTBEAT & AUTO-KICK ENGINE
+// ==========================================
+  // 🌟 3. DISTRIBUTED HEARTBEAT & AUTO-HOST MIGRATION ENGINE
+  // ==========================================
   useEffect(() => {
     if (!activeRoomCode || !roomData || roomData.status !== "playing") return;
 
+    // A. EMITTER: Quietly update specific user's ping (Every 5 seconds)
     const heartbeatInterval = setInterval(async () => {
       try {
         const { doc, updateDoc } = await import("firebase/firestore");
@@ -89,27 +93,38 @@ function Game() {
       } catch (err) {
         console.error("Heartbeat emission failed safely:", err);
       }
-    }, 6000); 
+    }, 5000); 
 
-    let disconnectChecker;
-    if (roomData.hostId === user.uid) {
-      disconnectChecker = setInterval(async () => {
-        try {
-          const { getDoc, doc, updateDoc } = await import("firebase/firestore");
-          const { db } = await import("../firebase/config");
-          const roomRef = doc(db, "games", activeRoomCode);
+    // B. DISTRIBUTED AUDITOR (Filters dead players & auto-migrates Host)
+    const disconnectChecker = setInterval(async () => {
+      try {
+        const { getDoc, doc, updateDoc } = await import("firebase/firestore");
+        const { db } = await import("../firebase/config");
+        const roomRef = doc(db, "games", activeRoomCode);
 
-          const freshSnap = await getDoc(roomRef);
-          if (!freshSnap.exists() || freshSnap.data().status !== "playing") return;
-          
-          const freshData = freshSnap.data();
-          const pings = freshData.pings || {};
-          const now = Date.now();
+        const freshSnap = await getDoc(roomRef);
+        if (!freshSnap.exists() || freshSnap.data().status !== "playing") return;
+        
+        const freshData = freshSnap.data();
+        const pings = freshData.pings || {};
+        const now = Date.now();
+        
+        // 🌟 Find players who pinged within the last 15 seconds
+        const alivePlayers = freshData.players.filter(
+          p => !p.hasResigned && (now - (pings[p.uid] || now)) <= 15000
+        );
+        
+        // 🌟 The first alive player automatically assumes the role of "Acting Host"
+        const actingHostId = alivePlayers.length > 0 ? alivePlayers[0].uid : null;
+
+        // Only the Acting Host performs the cleanup to prevent duplicate database writes
+        if (actingHostId === user.uid) {
           let stateChanged = false;
 
           const checkedPlayers = freshData.players.map((p) => {
             const playerLastSeen = pings[p.uid] || now; 
-            if (!p.hasResigned && now - playerLastSeen > 25000) {
+            // Kick if no ping for 15 seconds (Speed up the kick process)
+            if (!p.hasResigned && now - playerLastSeen > 15000) {
               stateChanged = true;
               return { ...p, hasResigned: true, isDisconnected: true };
             }
@@ -123,10 +138,13 @@ function Game() {
               (p) => p.isDisconnected && p.uid === activePlayerUID
             );
 
+            // If the active turn player was kicked, advance the turn immediately
             if (targetDCPlayer) {
               nextTurnIndex = (nextTurnIndex + 1) % checkedPlayers.length;
-              while (checkedPlayers[nextTurnIndex].hasResigned) {
+              let failsafe = 0;
+              while (checkedPlayers[nextTurnIndex].hasResigned && failsafe < 4) {
                 nextTurnIndex = (nextTurnIndex + 1) % checkedPlayers.length;
+                failsafe++;
               }
             }
 
@@ -139,23 +157,25 @@ function Game() {
               hasRolledThisTurn: false,
               currentDiceValue: null,
               status: finalStatus,
+              hostId: actingHostId, // Officially transfer host powers to the survivor
               winnerName:
                 finalStatus === "finished" && activePlayersLeft.length === 1
                   ? activePlayersLeft[0].name
                   : freshData.winnerName || null,
             });
           }
-        } catch (err) {
-          console.error("Host cleanup auditor failure bypass:", err);
         }
-      }, 10000);
-    }
+      } catch (err) {
+        console.error("Auditor failure bypass:", err);
+      }
+    }, 8000); // Check every 8 seconds
 
     return () => {
       clearInterval(heartbeatInterval);
-      if (disconnectChecker) clearInterval(disconnectChecker);
+      clearInterval(disconnectChecker);
     };
-  }, [activeRoomCode, roomData?.status, roomData?.hostId, user.uid]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeRoomCode, roomData?.status, user.uid]);
 
   // Click Handlers
   const handleCreateRoom = async () => {
@@ -494,6 +514,17 @@ function Game() {
                 {myPlayerState?.hasResigned ? "Resigned 🏳️" : "Resign Match 🏳️"}
               </button>
             </div>
+            {/* 🌟 INTEGRATED LIVE CHAT & EMOTE STREAM HUB */}
+            {!matchEnded && (
+              <div className="pt-2">
+                <GameChat 
+                  roomCode={activeRoomCode} 
+                  players={roomData?.players} 
+                  user={user} 
+                  roomData={roomData} // <-- Make sure this line is present
+                />
+              </div>
+            )}
           </div>
         </div>
       </div>
