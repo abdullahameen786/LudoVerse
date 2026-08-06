@@ -350,18 +350,21 @@ function Game() {
 
   const dynamicGlow = getAmbientGlow(activePlayer?.color);
 
-  // ==========================================
-  // 🎲 MAIN IN-GAME MATCH ARENA VIEW 
+// ==========================================
+  // 🎲 MAIN IN-GAME MATCH ARENA VIEW (Navbar Overlap & Overflow Fixed)
   // ==========================================
   return (
-    <div className="w-full h-[calc(100vh-76px)] bg-slate-50 flex items-center justify-center p-2 sm:p-4 box-border relative overflow-hidden">
+    // 🌟 FIX: Added strict max-h-screen container with inner relative positioning to balance navbar constraints
+    <div className="w-full h-[calc(100vh-76px)] min-h-[500px] bg-slate-50 flex flex-col items-center justify-center p-3 sm:p-4 box-border relative overflow-hidden select-none">
       
-      <div className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[70vw] h-[70vw] max-w-[600px] max-h-[600px] bg-gradient-to-tr ${dynamicGlow} blur-[120px] rounded-full pointer-events-none transition-colors duration-1000 z-0`}></div>
+      {/* Ambient Match Background Glow */}
+      <div className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[70vw] h-[70vw] max-w-[500px] max-h-[500px] bg-gradient-to-tr ${dynamicGlow} blur-[120px] rounded-full pointer-events-none transition-colors duration-1000 z-0`}></div>
 
-      <div className="w-full max-w-5xl h-full max-h-[650px] flex flex-col lg:flex-row items-center lg:items-stretch justify-center gap-4 sm:gap-6 relative z-10 shrink-0">
+      {/* Main Core Flex Arena - Strictly scaled down to fit standard laptop/desktop viewport heights safely */}
+      <div className="w-full max-w-5xl h-full max-h-[530px] flex flex-col lg:flex-row items-center lg:items-stretch justify-center gap-4 sm:gap-6 relative z-10 shrink-0">
         
         {/* LUDO BOARD PANEL */}
-        <div className="w-full max-w-[420px] sm:max-w-[460px] lg:max-w-[500px] max-h-full aspect-square bg-white p-3 sm:p-4 rounded-[2rem] shadow-xl shadow-slate-200/40 border border-slate-100 relative flex justify-center items-center shrink-0">
+        <div className="w-full max-w-[380px] sm:max-w-[420px] lg:max-w-[480px] max-h-full aspect-square bg-white p-3 rounded-[2rem] shadow-xl shadow-slate-200/40 border border-slate-100 relative flex justify-center items-center shrink-0">
           
           {matchEnded && (
             <div className="absolute inset-0 z-30 flex items-center justify-center bg-slate-900/80 backdrop-blur-md rounded-[2rem] p-4 animate-fade-in">
@@ -379,7 +382,7 @@ function Game() {
                 </p>
                 <button
                   onClick={() => window.location.reload()}
-                  className="w-full mt-2 px-5 py-3 bg-indigo-600 text-white font-bold rounded-xl shadow-lg shadow-indigo-200 hover:bg-indigo-700 active:scale-95 transition-all text-xs"
+                  className="w-full mt-2 px-5 py-3 bg-indigo-600 text-white font-bold rounded-xl shadow-lg shadow-indigo-200 hover:bg-indigo-700 active:scale-95 transition-all text-xs cursor-pointer"
                 >
                   Return to Lobby
                 </button>
@@ -397,32 +400,33 @@ function Game() {
           />
         </div>
 
-        {/* CONTROLS & CHAT PANEL */}
-        <div className="w-full max-w-[420px] lg:max-w-[340px] lg:w-[340px] max-h-full bg-white rounded-[2rem] p-4 sm:p-5 shadow-xl shadow-slate-200/40 border border-slate-100 flex flex-col justify-between shrink-0 overflow-hidden">
+        {/* CONTROLS & CHAT SIDEBAR PANEL */}
+        <div className="w-full max-w-[380px] sm:max-w-[420px] lg:max-w-[320px] lg:w-[320px] max-h-full bg-white rounded-[2rem] p-4 shadow-xl shadow-slate-200/40 border border-slate-100 flex flex-col justify-between shrink-0 overflow-hidden">
           
-          <div className="space-y-3 shrink-0">
+          {/* Top Status Header */}
+          <div className="space-y-2.5 shrink-0">
             {hasPendingDraw && !matchEnded && (
-              <div className="bg-amber-50 border border-amber-200/80 p-2.5 rounded-2xl text-center space-y-2 shadow-sm animate-fade-in">
+              <div className="bg-amber-50 border border-amber-200/80 p-2 rounded-2xl text-center space-y-1.5 shadow-sm animate-fade-in">
                 <p className="text-[10px] font-black text-amber-600 uppercase tracking-widest flex items-center justify-center gap-1">
                   <span className="w-1.5 h-1.5 bg-amber-500 rounded-full animate-ping"></span> Draw Requested
                 </p>
                 <div className="flex gap-2">
-                  <button onClick={handleAcceptDraw} className="flex-1 bg-amber-500 text-white font-bold py-1 rounded-xl text-[11px] hover:bg-amber-600 shadow-sm">
+                  <button onClick={handleAcceptDraw} className="flex-1 bg-amber-500 text-white font-bold py-1 rounded-xl text-[11px] hover:bg-amber-600 shadow-sm cursor-pointer">
                     Accept
                   </button>
-                  <button onClick={handleDeclineDraw} className="flex-1 bg-white border border-amber-300 text-amber-700 font-bold py-1 rounded-xl text-[11px] hover:bg-amber-50">
+                  <button onClick={handleDeclineDraw} className="flex-1 bg-white border border-amber-300 text-amber-700 font-bold py-1 rounded-xl text-[11px] hover:bg-amber-50 cursor-pointer">
                     Decline
                   </button>
                 </div>
               </div>
             )}
 
-            <div className="flex items-center justify-between border-b border-slate-50 pb-2">
+            <div className="flex items-center justify-between border-b border-slate-50 pb-1.5">
               <div className="text-left">
                 <p className="text-[9px] text-slate-400 font-black uppercase tracking-widest">
                   Active State
                 </p>
-                <h3 className="text-sm sm:text-base font-black tracking-tight flex items-center gap-1.5" style={{ color: activePlayer?.color }}>
+                <h3 className="text-sm font-black tracking-tight flex items-center gap-1.5" style={{ color: activePlayer?.color }}>
                   <span className="relative flex h-2 w-2">
                     <span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-60" style={{ backgroundColor: activePlayer?.color }}></span>
                     <span className="relative inline-flex rounded-full h-2 w-2" style={{ backgroundColor: activePlayer?.color }}></span>
@@ -434,7 +438,7 @@ function Game() {
                 <p className="text-[9px] text-slate-400 font-black uppercase tracking-widest">
                   Time Left
                 </p>
-                <p className={`text-sm sm:text-base font-black tracking-tight ${isDangerTime ? "text-rose-500 animate-pulse" : "text-slate-800"}`}>
+                <p className={`text-sm font-black tracking-tight ${isDangerTime ? "text-rose-500 animate-pulse" : "text-slate-800"}`}>
                   {timeLeft}s
                 </p>
               </div>
@@ -448,16 +452,18 @@ function Game() {
             </div>
           </div>
 
-          <div className="flex-1 flex flex-col justify-end gap-3 mt-4 shrink-0 overflow-hidden min-h-0">
+          {/* Action Blocks & Chat Section */}
+          <div className="flex-1 flex flex-col justify-end gap-3 mt-3 shrink-0 overflow-hidden min-h-0">
             
-            <div className="bg-slate-50/80 border border-slate-100 rounded-2xl p-2.5 flex items-center justify-between gap-3 w-full shadow-inner shrink-0">
+            {/* Dice Console */}
+            <div className="bg-slate-50/80 border border-slate-100 rounded-2xl p-2 flex items-center justify-between gap-3 w-full shadow-inner shrink-0">
               <div className="flex items-center gap-2">
-                <div className="w-10 h-10 bg-white border border-slate-200/80 rounded-xl flex items-center justify-center text-lg font-black text-slate-800 shadow-sm shrink-0">
+                <div className="w-9 h-10 bg-white border border-slate-200/80 rounded-xl flex items-center justify-center text-base font-black text-slate-800 shadow-sm shrink-0">
                   {roomData?.currentDiceValue || "—"}
                 </div>
                 <div className="text-left hidden xs:block">
                   <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Guide</p>
-                  <p className="text-[11px] font-bold text-slate-600 max-w-[110px] leading-tight">
+                  <p className="text-[11px] font-bold text-slate-600 max-w-[100px] leading-tight">
                     {isMyTurn ? (roomData?.hasRolledThisTurn ? "Select token" : "Roll dice") : "Wait turn"}
                   </p>
                 </div>
@@ -466,7 +472,7 @@ function Game() {
               <button
                 onClick={handleRollDice}
                 disabled={!isMyTurn || roomData?.hasRolledThisTurn || myPlayerState?.hasResigned || matchEnded}
-                className={`px-4 py-2.5 text-white font-bold text-xs rounded-xl transition-all text-center shrink-0 min-w-[95px] cursor-pointer ${
+                className={`px-3.5 py-2 text-white font-bold text-xs rounded-xl transition-all text-center shrink-0 min-w-[90px] cursor-pointer ${
                   isMyTurn
                     ? "bg-indigo-600 hover:bg-indigo-700 shadow-md shadow-indigo-100 active:scale-95"
                     : "bg-slate-300 cursor-not-allowed shadow-none opacity-60"
@@ -476,23 +482,25 @@ function Game() {
               </button>
             </div>
 
+            {/* Sub-actions Row */}
             <div className="flex gap-2 shrink-0">
               <button
                 onClick={handleDrawProposal}
                 disabled={myPlayerState?.hasResigned || roomData?.drawProposedBy || matchEnded}
-                className="flex-1 bg-white text-slate-600 border border-slate-200 font-bold py-2 rounded-xl text-xs hover:bg-slate-50 active:scale-95 transition-all disabled:opacity-40 shadow-sm"
+                className="flex-1 bg-white text-slate-600 border border-slate-200 font-bold py-1.5 rounded-xl text-xs hover:bg-slate-50 active:scale-95 transition-all disabled:opacity-40 shadow-sm cursor-pointer"
               >
                 {roomData?.drawProposedBy ? "Draw Proposed" : "Offer Draw 🤝"}
               </button>
               <button
                 onClick={handleResign}
                 disabled={myPlayerState?.hasResigned || matchEnded}
-                className="flex-1 bg-white text-rose-600 font-bold py-2 rounded-xl text-xs border border-rose-100 hover:bg-rose-50 active:scale-95 transition-all disabled:opacity-40 shadow-sm"
+                className="flex-1 bg-white text-rose-600 font-bold py-1.5 rounded-xl text-xs border border-rose-100 hover:bg-rose-50 active:scale-95 transition-all disabled:opacity-40 shadow-sm cursor-pointer"
               >
                 {myPlayerState?.hasResigned ? "Resigned 🏳️" : "Resign 🏳️"}
               </button>
             </div>
 
+            {/* Chat Box Element */}
             {!matchEnded && (
               <GameChat 
                 roomCode={activeRoomCode} 
