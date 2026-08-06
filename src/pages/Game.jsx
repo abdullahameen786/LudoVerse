@@ -351,20 +351,20 @@ function Game() {
   const dynamicGlow = getAmbientGlow(activePlayer?.color);
 
 // ==========================================
-  // 🎲 MAIN IN-GAME MATCH ARENA VIEW (Navbar Overlap & Overflow Fixed)
+  // 🎲 MAIN IN-GAME MATCH ARENA VIEW (Mobile Responsive Fix)
   // ==========================================
   return (
-    // 🌟 FIX: Added strict max-h-screen container with inner relative positioning to balance navbar constraints
-    <div className="w-full h-[calc(100vh-76px)] min-h-[500px] bg-slate-50 flex flex-col items-center justify-center p-3 sm:p-4 box-border relative overflow-hidden select-none">
+    // 🌟 FIX: Mobile ke liye overflow-y-auto aur justify-start, Desktop ke liye lg:overflow-hidden aur lg:justify-center
+    <div className="w-full min-h-[calc(100vh-76px)] lg:h-[calc(100vh-76px)] bg-slate-50 flex flex-col items-center justify-start lg:justify-center p-3 sm:p-4 box-border relative overflow-y-auto overflow-x-hidden lg:overflow-hidden select-none">
       
       {/* Ambient Match Background Glow */}
       <div className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[70vw] h-[70vw] max-w-[500px] max-h-[500px] bg-gradient-to-tr ${dynamicGlow} blur-[120px] rounded-full pointer-events-none transition-colors duration-1000 z-0`}></div>
 
-      {/* Main Core Flex Arena - Strictly scaled down to fit standard laptop/desktop viewport heights safely */}
-      <div className="w-full max-w-5xl h-full max-h-[530px] flex flex-col lg:flex-row items-center lg:items-stretch justify-center gap-4 sm:gap-6 relative z-10 shrink-0">
+      {/* Main Core Flex Arena - Added pt-4 and pb-10 for mobile so it doesn't touch navbar or bottom screen */}
+      <div className="w-full max-w-5xl lg:h-full lg:max-h-[560px] flex flex-col lg:flex-row items-center lg:items-stretch justify-start lg:justify-center gap-6 relative z-10 shrink-0 pt-2 pb-10 lg:py-0">
         
         {/* LUDO BOARD PANEL */}
-        <div className="w-full max-w-[380px] sm:max-w-[420px] lg:max-w-[480px] max-h-full aspect-square bg-white p-3 rounded-[2rem] shadow-xl shadow-slate-200/40 border border-slate-100 relative flex justify-center items-center shrink-0">
+        <div className="w-full max-w-[360px] sm:max-w-[420px] lg:max-w-[480px] lg:max-h-full aspect-square bg-white p-3 rounded-[2rem] shadow-xl shadow-slate-200/40 border border-slate-100 relative flex justify-center items-center shrink-0 mt-2 lg:mt-0">
           
           {matchEnded && (
             <div className="absolute inset-0 z-30 flex items-center justify-center bg-slate-900/80 backdrop-blur-md rounded-[2rem] p-4 animate-fade-in">
@@ -401,7 +401,8 @@ function Game() {
         </div>
 
         {/* CONTROLS & CHAT SIDEBAR PANEL */}
-        <div className="w-full max-w-[380px] sm:max-w-[420px] lg:max-w-[320px] lg:w-[320px] max-h-full bg-white rounded-[2rem] p-4 shadow-xl shadow-slate-200/40 border border-slate-100 flex flex-col justify-between shrink-0 overflow-hidden">
+        {/* Mobile par min-height di hai taake elements squish na hon */}
+        <div className="w-full max-w-[360px] sm:max-w-[420px] lg:max-w-[340px] lg:w-[340px] min-h-[500px] lg:min-h-0 lg:max-h-full bg-white rounded-[2rem] p-4 shadow-xl shadow-slate-200/40 border border-slate-100 flex flex-col justify-between shrink-0 overflow-hidden">
           
           {/* Top Status Header */}
           <div className="space-y-2.5 shrink-0">
