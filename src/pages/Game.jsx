@@ -74,13 +74,10 @@ function Game() {
     return () => clearInterval(timer);
   }, [roomData?.currentTurnIndex, roomData?.status, activeRoomCode, user.uid]);
 
-// ==========================================
-  // 🌟 3. DISTRIBUTED HEARTBEAT & AUTO-HOST MIGRATION ENGINE
-  // ==========================================
+  // 3. DISTRIBUTED HEARTBEAT & AUTO-HOST MIGRATION ENGINE
   useEffect(() => {
     if (!activeRoomCode || !roomData || roomData.status !== "playing") return;
 
-    // A. EMITTER: Quietly update specific user's ping (Every 5 seconds)
     const heartbeatInterval = setInterval(async () => {
       try {
         const { doc, updateDoc } = await import("firebase/firestore");
@@ -95,7 +92,6 @@ function Game() {
       }
     }, 5000); 
 
-    // B. DISTRIBUTED AUDITOR (Filters dead players & auto-migrates Host)
     const disconnectChecker = setInterval(async () => {
       try {
         const { getDoc, doc, updateDoc } = await import("firebase/firestore");
@@ -109,21 +105,17 @@ function Game() {
         const pings = freshData.pings || {};
         const now = Date.now();
         
-        // 🌟 Find players who pinged within the last 15 seconds
         const alivePlayers = freshData.players.filter(
           p => !p.hasResigned && (now - (pings[p.uid] || now)) <= 15000
         );
         
-        // 🌟 The first alive player automatically assumes the role of "Acting Host"
         const actingHostId = alivePlayers.length > 0 ? alivePlayers[0].uid : null;
 
-        // Only the Acting Host performs the cleanup to prevent duplicate database writes
         if (actingHostId === user.uid) {
           let stateChanged = false;
 
           const checkedPlayers = freshData.players.map((p) => {
             const playerLastSeen = pings[p.uid] || now; 
-            // Kick if no ping for 15 seconds (Speed up the kick process)
             if (!p.hasResigned && now - playerLastSeen > 15000) {
               stateChanged = true;
               return { ...p, hasResigned: true, isDisconnected: true };
@@ -138,7 +130,6 @@ function Game() {
               (p) => p.isDisconnected && p.uid === activePlayerUID
             );
 
-            // If the active turn player was kicked, advance the turn immediately
             if (targetDCPlayer) {
               nextTurnIndex = (nextTurnIndex + 1) % checkedPlayers.length;
               let failsafe = 0;
@@ -157,7 +148,7 @@ function Game() {
               hasRolledThisTurn: false,
               currentDiceValue: null,
               status: finalStatus,
-              hostId: actingHostId, // Officially transfer host powers to the survivor
+              hostId: actingHostId,
               winnerName:
                 finalStatus === "finished" && activePlayersLeft.length === 1
                   ? activePlayersLeft[0].name
@@ -168,7 +159,7 @@ function Game() {
       } catch (err) {
         console.error("Auditor failure bypass:", err);
       }
-    }, 8000); // Check every 8 seconds
+    }, 8000);
 
     return () => {
       clearInterval(heartbeatInterval);
@@ -237,16 +228,14 @@ function Game() {
   };
 
   // ==========================================
-  // 🎮 LOBBY VIEW (Dark Premium Card on Light Dashboard Background)
+  // 🎮 LOBBY VIEW
   // ==========================================
   if (!activeRoomCode) {
     return (
-      <div className="flex min-h-[calc(100vh-76px)] items-center justify-center px-4 py-8 bg-slate-50 relative overflow-hidden">
-        {/* Dashboard Style Ambient Glow */}
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[80%] max-w-2xl h-[300px] bg-indigo-400/15 blur-[100px] rounded-full pointer-events-none z-0"></div>
+      <div className="w-full h-[calc(100vh-76px)] flex flex-col p-4 bg-slate-50 relative overflow-y-auto overflow-x-hidden box-border">
+        <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[80%] max-w-2xl h-[300px] bg-indigo-400/15 blur-[100px] rounded-full pointer-events-none z-0"></div>
 
-        {/* Deep Premium Dark Card */}
-        <div className="w-full max-w-md rounded-[2rem] bg-slate-900 p-8 md:p-10 shadow-2xl shadow-indigo-200/50 border border-slate-800 text-center relative z-10 animate-fade-in">
+        <div className="m-auto w-full max-w-md rounded-[2rem] bg-slate-900 p-8 md:p-10 shadow-2xl shadow-indigo-200/50 border border-slate-800 text-center relative z-10 animate-fade-in shrink-0">
           <div className="w-14 h-14 bg-gradient-to-br from-indigo-500 to-violet-600 rounded-2xl flex items-center justify-center shadow-lg shadow-indigo-500/30 mx-auto mb-6 transform -rotate-3">
             <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
               <path strokeLinecap="round" strokeLinejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3" />
@@ -298,16 +287,14 @@ function Game() {
   }
 
   // ==========================================
-  // 🎮 WAITING VIEW (Dark Premium Card on Light Dashboard Background)
+  // 🎮 WAITING VIEW
   // ==========================================
   if (roomData && roomData.status === "waiting") {
     return (
-      <div className="flex min-h-[calc(100vh-76px)] items-center justify-center px-4 py-8 bg-slate-50 relative overflow-hidden">
-        {/* Dashboard Style Ambient Glow */}
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[80%] max-w-2xl h-[300px] bg-emerald-400/15 blur-[100px] rounded-full pointer-events-none z-0"></div>
+      <div className="w-full h-[calc(100vh-76px)] flex flex-col p-4 bg-slate-50 relative overflow-y-auto overflow-x-hidden box-border">
+        <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[80%] max-w-2xl h-[300px] bg-emerald-400/15 blur-[100px] rounded-full pointer-events-none z-0"></div>
 
-        {/* Deep Premium Dark Card */}
-        <div className="w-full max-w-md rounded-[2rem] bg-slate-900 p-8 md:p-10 shadow-2xl shadow-emerald-200/40 border border-slate-800 text-center relative z-10 animate-fade-in">
+        <div className="m-auto w-full max-w-md rounded-[2rem] bg-slate-900 p-8 md:p-10 shadow-2xl shadow-emerald-200/40 border border-slate-800 text-center relative z-10 animate-fade-in shrink-0">
           <h2 className="text-[10px] font-black text-emerald-400 uppercase tracking-[0.2em] mb-2">Room Authorized</h2>
           
           <div className="bg-slate-950 border border-slate-800 text-white text-3xl font-black py-3.5 px-6 rounded-2xl inline-block mb-6 tracking-[0.3em] shadow-inner select-all">
@@ -350,9 +337,6 @@ function Game() {
     );
   }
 
-  // ==========================================
-  // 🎲 CORE ACTIVE GAME SCREEN (Light Background)
-  // ==========================================
   const activePlayer = roomData?.players?.[roomData?.currentTurnIndex];
   const currentUserId = user?.uid?.trim();
   const activePlayerId = activePlayer?.uid?.trim();
@@ -366,34 +350,36 @@ function Game() {
 
   const dynamicGlow = getAmbientGlow(activePlayer?.color);
 
+  // ==========================================
+  // 🎲 MAIN IN-GAME MATCH ARENA VIEW 
+  // ==========================================
   return (
-    <div className="w-full max-w-[100vw] min-h-[calc(100vh-76px)] bg-slate-50 flex items-center justify-center p-2 sm:p-4 md:p-6 lg:p-8 box-border overflow-x-hidden relative">
+    <div className="w-full h-[calc(100vh-76px)] bg-slate-50 flex items-center justify-center p-2 sm:p-4 box-border relative overflow-hidden">
       
-      {/* Dynamic Ambient Match Background Glow */}
-      <div className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[80vw] h-[80vw] max-w-[800px] max-h-[800px] bg-gradient-to-tr ${dynamicGlow} blur-[120px] rounded-full pointer-events-none transition-colors duration-1000 z-0`}></div>
+      <div className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[70vw] h-[70vw] max-w-[600px] max-h-[600px] bg-gradient-to-tr ${dynamicGlow} blur-[120px] rounded-full pointer-events-none transition-colors duration-1000 z-0`}></div>
 
-      <div className="w-full max-w-5xl flex flex-col lg:flex-row items-center justify-center gap-6 lg:gap-10 relative z-10">
+      <div className="w-full max-w-5xl h-full max-h-[650px] flex flex-col lg:flex-row items-center lg:items-stretch justify-center gap-4 sm:gap-6 relative z-10 shrink-0">
         
         {/* LUDO BOARD PANEL */}
-        <div className="w-full max-w-[440px] bg-white/60 backdrop-blur-xl p-3 sm:p-4 rounded-[2rem] shadow-2xl shadow-slate-200/50 border border-white relative flex justify-center items-center shrink-0">
+        <div className="w-full max-w-[420px] sm:max-w-[460px] lg:max-w-[500px] max-h-full aspect-square bg-white p-3 sm:p-4 rounded-[2rem] shadow-xl shadow-slate-200/40 border border-slate-100 relative flex justify-center items-center shrink-0">
           
           {matchEnded && (
             <div className="absolute inset-0 z-30 flex items-center justify-center bg-slate-900/80 backdrop-blur-md rounded-[2rem] p-4 animate-fade-in">
-              <div className="bg-white p-8 rounded-3xl shadow-2xl text-center border-2 border-indigo-500 max-w-xs w-full space-y-4">
-                <div className="w-20 h-20 mx-auto bg-indigo-50 rounded-full flex items-center justify-center text-5xl mb-2 shadow-inner">
+              <div className="bg-white p-6 rounded-3xl shadow-2xl text-center border-2 border-indigo-500 max-w-xs w-full space-y-4">
+                <div className="w-16 h-16 mx-auto bg-indigo-50 rounded-full flex items-center justify-center text-4xl mb-2 shadow-inner">
                   {roomData.status === "drawn" ? "🤝" : "👑"}
                 </div>
-                <h2 className="text-3xl font-black text-slate-800 tracking-tight">
+                <h2 className="text-2xl font-black text-slate-800 tracking-tight">
                   {roomData.status === "drawn" ? "Match Drawn" : "Victory!"}
                 </h2>
-                <p className="text-sm font-semibold text-slate-500 leading-relaxed px-2">
+                <p className="text-xs font-semibold text-slate-500 leading-relaxed px-2">
                   {roomData.status === "drawn"
                     ? "All active players accepted the draw proposal."
                     : `${roomData.winnerName || "A competitor"} has dominated the arena.`}
                 </p>
                 <button
                   onClick={() => window.location.reload()}
-                  className="w-full mt-4 px-6 py-3.5 bg-indigo-600 text-white font-bold rounded-xl shadow-lg shadow-indigo-200 hover:bg-indigo-700 active:scale-95 transition-all"
+                  className="w-full mt-2 px-5 py-3 bg-indigo-600 text-white font-bold rounded-xl shadow-lg shadow-indigo-200 hover:bg-indigo-700 active:scale-95 transition-all text-xs"
                 >
                   Return to Lobby
                 </button>
@@ -411,122 +397,114 @@ function Game() {
           />
         </div>
 
-        {/* CONTROLS DASHBOARD PANEL */}
-        <div className="w-full max-w-[440px] lg:max-w-none lg:flex-1 bg-white/70 backdrop-blur-xl rounded-[2rem] p-6 md:p-8 shadow-xl shadow-slate-200/50 border border-white space-y-6 self-stretch flex flex-col justify-between">
-          <div>
+        {/* CONTROLS & CHAT PANEL */}
+        <div className="w-full max-w-[420px] lg:max-w-[340px] lg:w-[340px] max-h-full bg-white rounded-[2rem] p-4 sm:p-5 shadow-xl shadow-slate-200/40 border border-slate-100 flex flex-col justify-between shrink-0 overflow-hidden">
+          
+          <div className="space-y-3 shrink-0">
             {hasPendingDraw && !matchEnded && (
-              <div className="bg-amber-50 border border-amber-200/80 p-4 rounded-2xl text-center space-y-3 mb-5 shadow-sm animate-fade-in">
-                <p className="text-[10px] font-black text-amber-600 uppercase tracking-widest flex items-center justify-center gap-1.5">
+              <div className="bg-amber-50 border border-amber-200/80 p-2.5 rounded-2xl text-center space-y-2 shadow-sm animate-fade-in">
+                <p className="text-[10px] font-black text-amber-600 uppercase tracking-widest flex items-center justify-center gap-1">
                   <span className="w-1.5 h-1.5 bg-amber-500 rounded-full animate-ping"></span> Draw Requested
                 </p>
                 <div className="flex gap-2">
-                  <button onClick={handleAcceptDraw} className="flex-1 bg-amber-500 text-white font-bold py-2 rounded-xl text-xs hover:bg-amber-600 active:scale-95 transition-all shadow-sm shadow-amber-200">
+                  <button onClick={handleAcceptDraw} className="flex-1 bg-amber-500 text-white font-bold py-1 rounded-xl text-[11px] hover:bg-amber-600 shadow-sm">
                     Accept
                   </button>
-                  <button onClick={handleDeclineDraw} className="flex-1 bg-white border border-amber-300 text-amber-700 font-bold py-2 rounded-xl text-xs hover:bg-amber-50 active:scale-95 transition-all">
+                  <button onClick={handleDeclineDraw} className="flex-1 bg-white border border-amber-300 text-amber-700 font-bold py-1 rounded-xl text-[11px] hover:bg-amber-50">
                     Decline
                   </button>
                 </div>
               </div>
             )}
 
-            <div className="flex items-center justify-between border-b border-slate-200/60 pb-4">
+            <div className="flex items-center justify-between border-b border-slate-50 pb-2">
               <div className="text-left">
-                <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest mb-1">
+                <p className="text-[9px] text-slate-400 font-black uppercase tracking-widest">
                   Active State
                 </p>
-                <h3 className="text-xl md:text-2xl font-black tracking-tight flex items-center gap-2" style={{ color: activePlayer?.color }}>
-                  <span className="relative flex h-3.5 w-3.5">
+                <h3 className="text-sm sm:text-base font-black tracking-tight flex items-center gap-1.5" style={{ color: activePlayer?.color }}>
+                  <span className="relative flex h-2 w-2">
                     <span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-60" style={{ backgroundColor: activePlayer?.color }}></span>
-                    <span className="relative inline-flex rounded-full h-3.5 w-3.5" style={{ backgroundColor: activePlayer?.color }}></span>
+                    <span className="relative inline-flex rounded-full h-2 w-2" style={{ backgroundColor: activePlayer?.color }}></span>
                   </span>
                   {activePlayer?.uid === user.uid ? "Your Turn! ⚡" : `${activePlayer?.name}'s Turn`}
-                  {activePlayer?.hasResigned && " (Resigned)"}
                 </h3>
               </div>
               <div className="text-right">
-                <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest mb-1">
+                <p className="text-[9px] text-slate-400 font-black uppercase tracking-widest">
                   Time Left
                 </p>
-                <p className={`text-2xl font-black tracking-tight ${isDangerTime ? "text-rose-500 animate-pulse drop-shadow-sm" : "text-slate-800"}`}>
+                <p className={`text-sm sm:text-base font-black tracking-tight ${isDangerTime ? "text-rose-500 animate-pulse" : "text-slate-800"}`}>
                   {timeLeft}s
                 </p>
               </div>
             </div>
 
-            <div className="w-full bg-slate-200/60 rounded-full h-2 overflow-hidden mt-4 shadow-inner">
+            <div className="w-full bg-slate-100 rounded-full h-1 shadow-inner">
               <div
-                className={`h-2 rounded-full transition-all duration-1000 ease-linear ${isDangerTime ? "bg-rose-500" : "bg-indigo-500"}`}
+                className={`h-1 rounded-full transition-all duration-1000 ease-linear ${isDangerTime ? "bg-rose-500" : "bg-indigo-500"}`}
                 style={{ width: `${(timeLeft / 120) * 100}%` }}
               ></div>
             </div>
           </div>
 
-          <div className="space-y-4">
-            <div className="bg-slate-50 border border-slate-200/60 rounded-2xl p-4 flex items-center justify-between gap-4 w-full shadow-sm">
-              <div className="flex items-center gap-4">
-                <div className="w-16 h-16 bg-white border border-slate-200 rounded-xl flex items-center justify-center text-3xl font-black text-slate-800 shadow-sm">
+          <div className="flex-1 flex flex-col justify-end gap-3 mt-4 shrink-0 overflow-hidden min-h-0">
+            
+            <div className="bg-slate-50/80 border border-slate-100 rounded-2xl p-2.5 flex items-center justify-between gap-3 w-full shadow-inner shrink-0">
+              <div className="flex items-center gap-2">
+                <div className="w-10 h-10 bg-white border border-slate-200/80 rounded-xl flex items-center justify-center text-lg font-black text-slate-800 shadow-sm shrink-0">
                   {roomData?.currentDiceValue || "—"}
                 </div>
-                <div className="text-left hidden sm:block">
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-0.5">
-                    Action Guide
-                  </p>
-                  <p className="text-sm font-bold text-slate-700 leading-snug">
-                    {isMyTurn
-                      ? roomData?.hasRolledThisTurn
-                        ? "Tap your active token on the board"
-                        : "Click the button to spin dice"
-                      : `Waiting for ${activePlayer?.name || "opponent"} to finish shift`}
+                <div className="text-left hidden xs:block">
+                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Guide</p>
+                  <p className="text-[11px] font-bold text-slate-600 max-w-[110px] leading-tight">
+                    {isMyTurn ? (roomData?.hasRolledThisTurn ? "Select token" : "Roll dice") : "Wait turn"}
                   </p>
                 </div>
               </div>
+              
               <button
                 onClick={handleRollDice}
                 disabled={!isMyTurn || roomData?.hasRolledThisTurn || myPlayerState?.hasResigned || matchEnded}
-                className={`px-6 py-4 text-white font-bold text-sm rounded-xl transition-all text-center min-w-[120px] ${
+                className={`px-4 py-2.5 text-white font-bold text-xs rounded-xl transition-all text-center shrink-0 min-w-[95px] cursor-pointer ${
                   isMyTurn
-                    ? "bg-indigo-600 hover:bg-indigo-700 shadow-lg shadow-indigo-200 active:scale-95 cursor-pointer opacity-100"
+                    ? "bg-indigo-600 hover:bg-indigo-700 shadow-md shadow-indigo-100 active:scale-95"
                     : "bg-slate-300 cursor-not-allowed shadow-none opacity-60"
                 }`}
               >
-                {isMyTurn
-                  ? roomData?.hasRolledThisTurn
-                    ? "Select Token"
-                    : "Roll Dice 🎲"
-                  : "Wait Turn ⏳"}
+                {isMyTurn ? (roomData?.hasRolledThisTurn ? "Select Token" : "Roll Dice 🎲") : "Wait Turn ⏳"}
               </button>
             </div>
 
-            <div className="flex gap-3">
+            <div className="flex gap-2 shrink-0">
               <button
                 onClick={handleDrawProposal}
                 disabled={myPlayerState?.hasResigned || roomData?.drawProposedBy || matchEnded}
-                className="flex-1 bg-white text-slate-600 border border-slate-200 font-bold py-3.5 rounded-xl text-xs hover:bg-slate-50 hover:border-slate-300 active:scale-95 transition-all disabled:opacity-40 disabled:active:scale-100 shadow-sm"
+                className="flex-1 bg-white text-slate-600 border border-slate-200 font-bold py-2 rounded-xl text-xs hover:bg-slate-50 active:scale-95 transition-all disabled:opacity-40 shadow-sm"
               >
                 {roomData?.drawProposedBy ? "Draw Proposed" : "Offer Draw 🤝"}
               </button>
               <button
                 onClick={handleResign}
                 disabled={myPlayerState?.hasResigned || matchEnded}
-                className="flex-1 bg-white text-rose-600 font-bold py-3.5 rounded-xl text-xs border border-rose-200 hover:bg-rose-50 active:scale-95 transition-all disabled:opacity-40 disabled:active:scale-100 shadow-sm"
+                className="flex-1 bg-white text-rose-600 font-bold py-2 rounded-xl text-xs border border-rose-100 hover:bg-rose-50 active:scale-95 transition-all disabled:opacity-40 shadow-sm"
               >
-                {myPlayerState?.hasResigned ? "Resigned 🏳️" : "Resign Match 🏳️"}
+                {myPlayerState?.hasResigned ? "Resigned 🏳️" : "Resign 🏳️"}
               </button>
             </div>
-            {/* 🌟 INTEGRATED LIVE CHAT & EMOTE STREAM HUB */}
+
             {!matchEnded && (
-              <div className="pt-2">
-                <GameChat 
-                  roomCode={activeRoomCode} 
-                  players={roomData?.players} 
-                  user={user} 
-                  roomData={roomData} // <-- Make sure this line is present
-                />
-              </div>
+              <GameChat 
+                roomCode={activeRoomCode} 
+                players={roomData?.players} 
+                user={user} 
+                roomData={roomData}
+              />
             )}
+            
           </div>
         </div>
+
       </div>
     </div>
   );
