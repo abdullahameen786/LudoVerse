@@ -8,6 +8,7 @@ import {
   onSnapshot,
   arrayUnion,
   increment, // 🌟 Added atomic increments utility
+  runTransaction
 } from "firebase/firestore";
 import { getTokenCoordinates, isSafeZone } from "../utils/ludoMap";
 
@@ -58,25 +59,30 @@ export const createGameRoom = async (user) => {
   return roomCode;
 };
 
-// Join an existing room via code
+// 🌟 FIXED: Join an existing room via code using Atomic Transaction (Prevents double-click bugs)
 export const joinGameRoom = async (roomCode, user) => {
   const formattedCode = roomCode.trim().toUpperCase();
   const roomRef = doc(db, "games", formattedCode);
-  const roomSnap = await getDoc(roomRef);
 
-  if (!roomSnap.exists()) throw new Error("Room not found.");
-  const roomData = roomSnap.data();
+  await runTransaction(db, async (transaction) => {
+    const roomSnap = await transaction.get(roomRef);
 
-  if (roomData.status !== "waiting") throw new Error("Game already started.");
-  if (roomData.players.length >= 4) throw new Error("Room full.");
-  if (roomData.players.some((p) => p.uid === user.uid)) return formattedCode;
+    if (!roomSnap.exists()) throw new Error("Room not found.");
+    const roomData = roomSnap.data();
 
-  const colors = ["red", "green", "yellow", "blue"];
-  const assignedColor = colors[roomData.players.length];
-  const playerName = user.displayName || user.email.split("@")[0] || "Player";
+    if (roomData.status !== "waiting") throw new Error("Game already started.");
+    if (roomData.players.length >= 4) throw new Error("Room full.");
+    
+    // Check if player already exists inside the locked transaction
+    if (roomData.players.some((p) => p.uid === user.uid)) {
+      return; // Silently abort if player is already inside
+    }
 
-  await updateDoc(roomRef, {
-    players: arrayUnion({
+    const colors = ["red", "green", "yellow", "blue"];
+    const assignedColor = colors[roomData.players.length];
+    const playerName = user.displayName || user.email.split("@")[0] || "Player";
+
+    const newPlayer = {
       uid: user.uid,
       name: playerName,
       color: assignedColor,
@@ -85,7 +91,12 @@ export const joinGameRoom = async (roomCode, user) => {
       hasResigned: false,
       isWinner: false,
       lastSeen: Date.now(),
-    }),
+    };
+
+    // Update atomically
+    transaction.update(roomRef, {
+      players: [...roomData.players, newPlayer]
+    });
   });
 
   return formattedCode;

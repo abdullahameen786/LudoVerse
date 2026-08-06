@@ -169,7 +169,8 @@ function Game() {
   }, [activeRoomCode, roomData?.status, user.uid]);
 
   // Click Handlers
-  const handleCreateRoom = async () => {
+const handleCreateRoom = async () => {
+    if (loading) return; // 🌟 FIX: Stops double clicks instantly
     setError("");
     setLoading(true);
     try {
@@ -184,7 +185,7 @@ function Game() {
 
   const handleJoinRoom = async (e) => {
     e.preventDefault();
-    if (!joinInput.trim()) return;
+    if (!joinInput.trim() || loading) return; // 🌟 FIX: Added loading guard
     setError("");
     setLoading(true);
     try {
